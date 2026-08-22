@@ -1,4 +1,4 @@
 <?php
 // Root entry point redirect for Apache / XAMPP subfolder deployments
-header('Location: public/index.php');
+header('Location: public/dashboard.php');
 exit;
