@@ -1,0 +1,182 @@
+{% include 'layout_header.twig' %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="mb-0 fw-bold"><i class="bi bi-table text-primary me-2"></i>Monthly Tracker</h2>
+    <p class="text-muted small mb-0">Track actual spending vs budget for {{ selectedMonth }} {{ selectedYear }}</p>
+  </div>
+</div>
+
+<div class="alert alert-light border shadow-sm mb-3 d-flex align-items-center gap-2">
+  <i class="bi bi-info-circle-fill text-primary fs-5"></i>
+  <span class="small">
+    <strong>Spreadsheet experience:</strong> Edit any blue Actual field and click outside (or press Enter) — it saves automatically via background fetch without reloading the page!
+  </span>
+</div>
+
+<div class="card p-3 shadow-sm">
+  <form method="post" id="trackerForm">
+    {{ csrf_field() }}
+    <input type="hidden" name="year" id="trackerYear" value="{{ selectedYear }}">
+    <input type="hidden" name="month" id="trackerMonth" value="{{ selectedMonth }}">
+
+    <!-- Responsive Container: Horizontally scrollable on small screens with category color accents -->
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="min-width: 180px;">Category</th>
+            <th class="text-end" style="min-width: 100px;">Budget</th>
+            <th class="text-end" style="min-width: 140px;">Actual (Edit)</th>
+            <th class="text-end" style="min-width: 90px;">In</th>
+            <th class="text-end" style="min-width: 90px;">Out</th>
+            <th class="text-end" style="min-width: 110px;">Closing</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for groupName, rows in data.groups %}
+          {% set groupColor = groupColors[groupName]|default('#6c757d') %}
+          <tr class="group-row" style="border-left: 4px solid {{ groupColor }};">
+            <td colspan="6" class="fw-bold py-2" style="background-color: rgba(0,0,0,0.03);">
+              <span class="badge me-1" style="background-color: {{ groupColor }};">&nbsp;</span>
+              {{ groupName }}
+            </td>
+          </tr>
+          {% for row in rows %}
+            {% set cat = row.category %}
+            <tr>
+              <td class="ps-3">
+                <span class="fw-semibold">{{ cat.name }}</span>
+                {% if cat.notes %}<span class="text-muted small d-block" style="font-size: 0.75rem;">{{ cat.notes }}</span>{% endif %}
+              </td>
+              <td class="text-end">{{ fmt_money(row.budget, symbol) }}</td>
+              <td class="text-end">
+                {% if cat.is_other %}
+                  <span class="fw-semibold">{{ fmt_money(row.actual, symbol) }}</span>
+                  <div class="form-text small" style="font-size: 0.7rem;">from <a href="other_expenses.php">log</a></div>
+                {% else %}
+                  <div class="input-group input-group-sm ms-auto" style="max-width: 130px;">
+                    <input type="number" step="0.01" min="0"
+                           name="actual[{{ cat.id }}]"
+                           data-cat-id="{{ cat.id }}"
+                           class="form-control form-control-sm input-cell text-end tracker-actual-input bg-warning-subtle text-dark border-warning"
+                           value="{{ row.actual }}">
+                    <span class="input-group-text bg-light text-muted tracker-status-icon" id="status-icon-{{ cat.id }}"><i class="bi bi-check2"></i></span>
+                  </div>
+                {% endif %}
+              </td>
+              <td class="text-end text-muted">{{ fmt_money(row.in, symbol) }}</td>
+              <td class="text-end text-muted">{{ fmt_money(row.out, symbol) }}</td>
+              <td class="text-end fw-bold {% if row.closing >= 0 %}positive{% else %}negative{% endif %}" id="closing-val-{{ cat.id }}">
+                {{ fmt_money(row.closing, symbol) }}
+              </td>
+            </tr>
+          {% endfor %}
+        {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td>TOTAL / NET POSITION</td>
+            <td class="text-end" id="total-budget">{{ fmt_money(data.totals.budget, symbol) }}</td>
+            <td class="text-end" id="total-actual">{{ fmt_money(data.totals.actual, symbol) }}</td>
+            <td class="text-end" id="total-in">{{ fmt_money(data.totals.in, symbol) }}</td>
+            <td class="text-end" id="total-out">{{ fmt_money(data.totals.out, symbol) }}</td>
+            <td class="text-end {% if data.totals.closing >= 0 %}positive{% else %}negative{% endif %}" id="total-closing">
+              {{ fmt_money(data.totals.closing, symbol) }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="mt-3 d-flex justify-content-between align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i> Save All Actuals</button>
+      <span class="text-muted small" id="autoSaveNotification"><i class="bi bi-cloud-check text-success"></i> Auto-save ready</span>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const csrfToken = '{{ csrf_token() }}';
+  const year = document.getElementById('trackerYear').value;
+  const month = document.getElementById('trackerMonth').value;
+
+  const inputs = document.querySelectorAll('.tracker-actual-input');
+
+  inputs.forEach(input => {
+    let originalVal = input.value;
+
+    input.addEventListener('blur', function() {
+      if (this.value === originalVal) return;
+
+      const catId = this.dataset.catId;
+      const statusIcon = document.getElementById('status-icon-' + catId);
+      const autoSaveNotice = document.getElementById('autoSaveNotification');
+
+      statusIcon.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status"></span>';
+
+      const formData = new FormData();
+      formData.append('csrf', csrfToken);
+      formData.append('category_id', catId);
+      formData.append('year', year);
+      formData.append('month', month);
+      formData.append('actual', this.value);
+
+      fetch('api_tracker.php', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrfToken
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          originalVal = input.value;
+          statusIcon.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+
+          // Update row closing
+          const closingEl = document.getElementById('closing-val-' + catId);
+          if (closingEl) {
+            closingEl.textContent = data.row.closing_formatted;
+            closingEl.className = 'text-end fw-bold ' + (data.row.is_positive ? 'positive' : 'negative');
+          }
+
+          // Update table totals
+          document.getElementById('total-budget').textContent = data.totals.budget_formatted;
+          document.getElementById('total-actual').textContent = data.totals.actual_formatted;
+          document.getElementById('total-in').textContent = data.totals.in_formatted;
+          document.getElementById('total-out').textContent = data.totals.out_formatted;
+
+          const totalClosingEl = document.getElementById('total-closing');
+          totalClosingEl.textContent = data.totals.closing_formatted;
+          totalClosingEl.className = 'text-end ' + (data.totals.is_positive ? 'positive' : 'negative');
+
+          autoSaveNotice.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> Saved automatically';
+          setTimeout(() => {
+            autoSaveNotice.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Auto-save ready';
+          }, 3000);
+        } else {
+          statusIcon.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger"></i>';
+          alert(data.error || 'Failed to auto-save.');
+        }
+      })
+      .catch(err => {
+        statusIcon.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger"></i>';
+        console.error(err);
+      });
+    });
+
+    input.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+  });
+});
+</script>
+
+{% include 'layout_footer.twig' %}
