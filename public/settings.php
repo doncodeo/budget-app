@@ -36,7 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $notes = trim($_POST['notes'] ?? '');
 
             if ($action === 'create') {
-                $maxOrder = (int)$pdo->prepare('SELECT COALESCE(MAX(sort_order),0) FROM categories WHERE budget_id = ?');
                 $maxOrderStmt = $pdo->prepare('SELECT COALESCE(MAX(sort_order),0) FROM categories WHERE budget_id = ?');
                 $maxOrderStmt->execute([$budgetId]);
                 $maxOrder = (int)$maxOrderStmt->fetchColumn();

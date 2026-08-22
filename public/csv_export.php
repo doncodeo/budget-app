@@ -39,6 +39,18 @@ if ($type === 'tracker') {
         }
     }
     fputcsv($output, ['TOTAL', '', '', $data['totals']['budget'], $data['totals']['actual'], $data['totals']['in'], $data['totals']['out'], $data['totals']['closing']]);
+} elseif ($type === 'income') {
+    fputcsv($output, ['Month', 'Salary', 'Other Income', 'Total Income']);
+    $budgetId = get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT month, salary FROM income WHERE budget_id=? AND year=?');
+    $stmt->execute([$budgetId, $year]);
+    $salaries = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'salary', 'month');
+
+    foreach (MONTHS as $m) {
+        $sal = (float)($salaries[$m] ?? 0);
+        $oth = get_other_income_total($pdo, $userId, $year, $m, $budgetId);
+        fputcsv($output, [$m, $sal, $oth, $sal + $oth]);
+    }
 } elseif ($type === 'transfers') {
     fputcsv($output, ['ID', 'Date', 'Year', 'Month', 'From Category', 'To Category', 'Amount', 'Reason', 'Approved']);
     $budgetId = get_active_budget_id($pdo, $userId);
