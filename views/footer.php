@@ -1,7 +1,7 @@
 </div>
 <footer class="text-center py-4 text-muted border-top mt-5">
   <div class="container">
-    <small>&copy; {{ "now"|date("Y") }} {{ APP_NAME }} &mdash; Private, Fault-Tolerant, Multi-User Shared Budgeting.</small>
+    <small>&copy; <?= date('Y') ?> <?= h(APP_NAME) ?> &mdash; Private, Fault-Tolerant, Multi-User Shared Budgeting.</small>
   </div>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

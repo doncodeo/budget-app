@@ -55,6 +55,8 @@ render_template('tracker.twig', [
     'selectedYear' => $selectedYear,
     'selectedMonth' => $selectedMonth,
     'data' => $data,
+    'groups' => $data['groups'] ?? [],
+    'totals' => $data['totals'] ?? [],
     'symbol' => $symbol,
     'groupColors' => $groupColors,
 ]);

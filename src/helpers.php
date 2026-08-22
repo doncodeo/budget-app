@@ -159,6 +159,7 @@ function tracker_month(PDO $pdo, int $userId, int $year, string $month, ?int $bu
     $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
     $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
     $grouped = get_categories_grouped($pdo, $userId, $budgetId);
+    $groupColors = \App\BudgetService::getCategoryGroupColors();
     $result = [];
     $totals = ['budget' => 0.0, 'actual' => 0.0, 'in' => 0.0, 'out' => 0.0, 'closing' => 0.0];
 
@@ -167,6 +168,7 @@ function tracker_month(PDO $pdo, int $userId, int $year, string $month, ?int $bu
         foreach ($cats as $cat) {
             $row = tracker_row($pdo, $userId, $cat, $year, $month, $salary, $budgetId);
             $row['category'] = $cat;
+            $row['group_color'] = $groupColors[$groupName] ?? '#1f4e78';
             $rows[] = $row;
             foreach (['budget', 'actual', 'in', 'out', 'closing'] as $k) {
                 $totals[$k] += $row[$k];

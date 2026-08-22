@@ -59,8 +59,8 @@ if (empty($years)) {
 
 // Search, filtering & pagination
 $filterSearch = trim($_GET['search'] ?? '');
-$filterYear = isset($_GET['filter_year']) && $_GET['filter_year'] !== '' ? (int)$_GET['filter_year'] : null;
-$filterMonth = trim($_GET['filter_month'] ?? '');
+$filterYear = isset($_GET['filter_year']) && $_GET['filter_year'] !== '' ? (int)$_GET['filter_year'] : (isset($_GET['year']) ? (int)$_GET['year'] : null);
+$filterMonth = trim($_GET['filter_month'] ?? $_GET['month'] ?? '');
 
 $where = ['budget_id = ?'];
 $params = [$budgetId];
@@ -94,13 +94,19 @@ $stmt = $pdo->prepare("SELECT * FROM other_income WHERE $whereSql ORDER BY year 
 $stmt->execute($params);
 $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$selectedYear = (int)($_GET['year'] ?? $years[0]);
+$selectedMonth = $_GET['month'] ?? MONTHS[(int)date('n') - 1];
+
 render_template('other_income.twig', [
     'activePage' => 'other_income',
     'pageTitle' => 'Other Income',
     'flash' => $flash,
     'flashType' => $flashType,
+    'selectedYear' => $selectedYear,
+    'selectedMonth' => $selectedMonth,
     'years' => $years,
     'entries' => $entries,
+    'paginatedLogs' => $entries,
     'symbol' => $symbol,
     'filterSearch' => $filterSearch,
     'filterYear' => $filterYear,
