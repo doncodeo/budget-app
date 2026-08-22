@@ -67,7 +67,7 @@ class View
         }, $content);
 
         // Simple token substitutions for fallback rendering
-        $phpCode = '?>' . preg_replace_callback('/\{\{\s*(.*?)\s*\}\}/', function($matches) {
+        $phpCode = preg_replace_callback('/\{\{\s*(.*?)\s*\}\}/', function($matches) {
             $expr = trim($matches[1]);
             if (preg_match('/^([a-zA-Z0-9_\.]+)\|money$/', $expr, $m)) {
                 return '<?= fmt_money($this->fetch(' . var_export($m[1], true) . ', $context)) ?>';
