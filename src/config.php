@@ -60,3 +60,15 @@ spl_autoload_register(function (string $class): void {
 if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
     require_once APP_ROOT . '/vendor/autoload.php';
 }
+
+// Minimal Twig PSR-4 autoloader for standalone environments without Composer autoloader
+spl_autoload_register(function (string $class): void {
+    if (strncmp('Twig\\', $class, 5) !== 0) {
+        return;
+    }
+    $relativeClass = substr($class, 5);
+    $file = APP_ROOT . '/vendor/twig/twig/src/' . str_replace('\\', '/', $relativeClass) . '.php';
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
