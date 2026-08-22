@@ -38,9 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $year = (int)$_POST['year'];
             $month = $_POST['month'];
             $amount = (float)$_POST['amount'];
-            $reason = trim($_POST['reason'] ?? '');
+            $reason = trim($_POST['description'] ?? $_POST['reason'] ?? '');
             $approved = $_POST['approved'] ?? 'Pending';
-            $date = $_POST['entry_date'] ?: date('Y-m-d');
+            $date = $_POST['transfer_date'] ?? $_POST['entry_date'] ?: date('Y-m-d');
 
             ensure_year($pdo, $userId, $year, $budgetId);
             $stmt = $pdo->prepare(
@@ -48,6 +48,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  VALUES (?,?,?,?,?,?,?,?,?,?)'
             );
             $stmt->execute([$budgetId, $userId, $date, $year, $month, $from, $to, $amount, $reason, $approved]);
+
+            if (!empty($_POST['save_as_template'])) {
+                $tmplName = "Sweep from Cat #$from to Cat #$to";
+                $tmplStmt = $pdo->prepare('INSERT INTO transfer_templates (budget_id, name, from_category_id, to_category_id, amount) VALUES (?, ?, ?, ?, ?)');
+                $tmplStmt->execute([$budgetId, $tmplName, $from, $to, $amount]);
+            }
+
             $flash = 'Transfer logged. Both buckets have been updated.';
         }
     } elseif ($action === 'delete') {
@@ -107,8 +114,8 @@ $templates = $tmplStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Search, filtering & pagination for transfers log
 $filterSearch = trim($_GET['search'] ?? '');
-$filterYear = isset($_GET['filter_year']) && $_GET['filter_year'] !== '' ? (int)$_GET['filter_year'] : null;
-$filterMonth = trim($_GET['filter_month'] ?? '');
+$filterYear = isset($_GET['filter_year']) && $_GET['filter_year'] !== '' ? (int)$_GET['filter_year'] : (isset($_GET['year']) ? (int)$_GET['year'] : null);
+$filterMonth = trim($_GET['filter_month'] ?? $_GET['month'] ?? '');
 
 $where = ['t.budget_id = ?'];
 $params = [$budgetId];
@@ -152,15 +159,30 @@ $stmt = $pdo->prepare(
 $stmt->execute($params);
 $transfers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$selectedYear = (int)($_GET['year'] ?? $years[0]);
+$selectedMonth = $_GET['month'] ?? MONTHS[(int)date('n') - 1];
+
+// Map transfer table fields for view rendering compatibility
+$paginatedLogs = array_map(function($t) {
+    $t['transfer_date'] = $t['entry_date'];
+    $t['from_category_name'] = $t['from_name'];
+    $t['to_category_name'] = $t['to_name'];
+    $t['description'] = $t['reason'];
+    return $t;
+}, $transfers);
+
 render_template('transfers.twig', [
     'activePage' => 'transfers',
     'pageTitle' => 'Transfers',
     'flash' => $flash,
     'flashType' => $flashType,
+    'selectedYear' => $selectedYear,
+    'selectedMonth' => $selectedMonth,
     'years' => $years,
     'categories' => $categories,
     'templates' => $templates,
     'transfers' => $transfers,
+    'paginatedLogs' => $paginatedLogs,
     'symbol' => $symbol,
     'filterSearch' => $filterSearch,
     'filterYear' => $filterYear,

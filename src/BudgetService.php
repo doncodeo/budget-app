@@ -100,25 +100,33 @@ class BudgetService
                 $pct = $budget > 0 ? min(100, round(($actual / $budget) * 100, 1)) : ($actual > 0 ? 100 : 0);
 
                 $status = 'green';
+                $statusClass = 'success';
                 if ($budget > 0) {
                     $ratio = $actual / $budget;
                     if ($ratio > 1.0) {
                         $status = 'red';
+                        $statusClass = 'danger';
                     } elseif ($ratio >= 0.85) {
                         $status = 'amber';
+                        $statusClass = 'warning';
                     }
                 } else if ($actual > 0) {
                     $status = 'red';
+                    $statusClass = 'danger';
                 }
+
+                $groupColors = self::getCategoryGroupColors();
 
                 $list[] = [
                     'id' => $cat['id'],
                     'name' => $cat['name'],
                     'group_name' => $groupName,
+                    'group_color' => $groupColors[$groupName] ?? '#1f4e78',
                     'budget' => $budget,
                     'actual' => $actual,
                     'percent' => $pct,
                     'status' => $status,
+                    'status_class' => $statusClass,
                 ];
             }
         }

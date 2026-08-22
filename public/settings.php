@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$budgetId, $userId, $name, $group, $basis, $fixed, $percent, $notes, $maxOrder + 1]);
                 $flash = "\"$name\" added.";
             } else {
-                $catId = (int)($_POST['category_id'] ?? 0);
+                $catId = (int)($_POST['id'] ?? $_POST['category_id'] ?? 0);
                 $stmt = $pdo->prepare(
                     'UPDATE categories SET name=?, group_name=?, basis=?, fixed_amount=?, percent=?, notes=?
                      WHERE id=? AND budget_id=?'
@@ -56,8 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $flash = "\"$name\" updated.";
             }
         }
-    } elseif ($action === 'delete') {
-        $catId = (int)($_POST['category_id'] ?? 0);
+    } elseif ($action === 'delete' || $action === 'archive') {
+        $catId = (int)($_POST['id'] ?? $_POST['category_id'] ?? 0);
         $stmt = $pdo->prepare('SELECT is_other FROM categories WHERE id=? AND budget_id=?');
         $stmt->execute([$catId, $budgetId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -85,5 +85,6 @@ render_template('settings.twig', [
     'flashType' => $flashType,
     'categories' => $categories,
     'editCat' => $editCat,
+    'editingCat' => $editCat,
     'symbol' => $symbol,
 ]);

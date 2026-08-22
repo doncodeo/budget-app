@@ -122,7 +122,7 @@ $mStmt->execute([$budgetId]);
 $members = $mStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get all budgets current user belongs to
-$ubStmt = $pdo->prepare("SELECT b.* FROM budgets b JOIN budget_members bm ON bm.budget_id = b.id WHERE bm.user_id = ? ORDER BY b.id DESC");
+$ubStmt = $pdo->prepare("SELECT b.*, bm.role FROM budgets b JOIN budget_members bm ON bm.budget_id = b.id WHERE bm.user_id = ? ORDER BY b.id DESC");
 $ubStmt->execute([$userId]);
 $userBudgets = $ubStmt->fetchAll(PDO::FETCH_ASSOC);
 
