@@ -40,30 +40,69 @@ class View
 
     public static function render(string $template, array $data = []): void
     {
-        if (self::hasTwig()) {
-            echo self::getTwig()->render($template, $data);
+        $twig = self::getTwig();
+        if ($twig !== null) {
+            echo $twig->render($template, $data);
             return;
         }
 
-        // Fallback PHP template engine for environments where vendor/twig is missing
-        extract($data);
-        $templateBase = str_replace('.twig', '', $template);
+        // Fallback template engine compiling .twig files directly when Twig environment is not loaded
+        self::renderFallback($template, $data);
+    }
 
-        // Include header
-        $headerFile = APP_ROOT . '/src/layout_header.php';
-        if (file_exists($headerFile)) {
-            require $headerFile;
+    private static function renderFallback(string $template, array $data): void
+    {
+        $filePath = APP_ROOT . '/templates/' . $template;
+        if (!file_exists($filePath)) {
+            echo "Template not found: " . h($template);
+            return;
         }
 
-        $bodyFile = APP_ROOT . "/public/$templateBase.php";
-        if (file_exists($bodyFile) && realpath($bodyFile) !== realpath($_SERVER['SCRIPT_FILENAME'] ?? '')) {
-            require $bodyFile;
-        }
+        $content = file_get_contents($filePath);
 
-        // Include footer
-        $footerFile = APP_ROOT . '/src/layout_footer.php';
-        if (file_exists($footerFile)) {
-            require $footerFile;
-        }
+        // Process include tags
+        $content = preg_replace_callback('/\{%\s*include\s+[\'"]([^\'"]+)[\'"]\s*%\}/', function($m) use ($data) {
+            $subPath = APP_ROOT . '/templates/' . $m[1];
+            return file_exists($subPath) ? file_get_contents($subPath) : '';
+        }, $content);
+
+        // Simple token substitutions for fallback rendering
+        $phpCode = '?>' . preg_replace_callback('/\{\{\s*(.*?)\s*\}\}/', function($matches) {
+            $expr = trim($matches[1]);
+            if (preg_match('/^([a-zA-Z0-9_\.]+)\|money$/', $expr, $m)) {
+                return '<?= fmt_money($this->fetch(' . var_export($m[1], true) . ', $context)) ?>';
+            }
+            if (preg_match('/^csrf_field\(\)$/', $expr)) {
+                return '<?= csrf_field() ?>';
+            }
+            if (preg_match('/^csrf_token\(\)$/', $expr)) {
+                return '<?= csrf_token() ?>';
+            }
+            return '<?= h((string)($this->fetch(' . var_export($expr, true) . ', $context) ?? "")) ?>';
+        }, $content);
+
+        $context = $data;
+        $fetcher = new class {
+            public function fetch(string $key, array $ctx) {
+                $parts = explode('.', $key);
+                $curr = $ctx;
+                foreach ($parts as $p) {
+                    if (is_array($curr) && array_key_exists($p, $curr)) {
+                        $curr = $curr[$p];
+                    } else {
+                        return null;
+                    }
+                }
+                return $curr;
+            }
+        };
+
+        // Execute compiled fallback PHP
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        file_put_contents($tmp, $phpCode);
+        (function() use ($tmp, $context, $fetcher) {
+            include $tmp;
+        })();
+        @unlink($tmp);
     }
 }
