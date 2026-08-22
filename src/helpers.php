@@ -1,9 +1,11 @@
 <?php
 declare(strict_types=1);
 
-function fmt_money(float $amount, string $symbol = '₦'): string
+function fmt_money(?float $amount, ?string $symbol = '₦'): string
 {
-    return $symbol . number_format($amount, 0);
+    $val = (float)($amount ?? 0.0);
+    $sym = $symbol ?: '₦';
+    return $sym . number_format($val, 0);
 }
 
 function h(?string $s): string
