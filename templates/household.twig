@@ -1,0 +1,166 @@
+{% include 'layout_header.twig' %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0 fw-bold"><i class="bi bi-people text-primary me-2"></i>Household & Shared Budgets</h2>
+    <p class="text-muted small mb-0">Share budget access with partners/spouses or switch between personal and shared budgets.</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card p-3 shadow-sm mb-4">
+      <h5 class="fw-bold mb-3"><i class="bi bi-house-door text-success me-2"></i>Active Budget: {{ activeBudget.name }}</h5>
+
+      <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+          <div class="p-2 bg-light rounded text-center">
+            <div class="text-muted small">Currency</div>
+            <div class="fw-bold">{{ activeBudget.currency_code }} ({{ activeBudget.currency_symbol }})</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="p-2 bg-light rounded text-center">
+            <div class="text-muted small">Owner</div>
+            <div class="fw-bold">{{ activeBudget.owner_name }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="p-2 bg-light rounded text-center">
+            <div class="text-muted small">Your Role</div>
+            <div class="fw-bold"><span class="badge bg-primary">{{ currentUserRole|capitalize }}</span></div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="p-2 bg-light rounded text-center">
+            <div class="text-muted small">Members</div>
+            <div class="fw-bold">{{ members|length }}</div>
+          </div>
+        </div>
+      </div>
+
+      <h6 class="fw-bold mt-3 mb-2">Budget Members</h6>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr><th>Username</th><th>Role</th><th>Joined</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for m in members %}
+            <tr>
+              <td>
+                <span class="fw-semibold">{{ m.username }}</span>
+                {% if m.id == user.id %}<span class="badge bg-secondary-subtle text-dark ms-1">You</span>{% endif %}
+              </td>
+              <td>
+                <span class="badge {% if m.role == 'owner' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">
+                  {{ m.role|capitalize }}
+                </span>
+              </td>
+              <td class="small text-muted">{{ m.created_at }}</td>
+              <td>
+                {% if currentUserRole == 'owner' and m.id != user.id %}
+                <form method="post" onsubmit="return confirm('Remove {{ m.username }} from this budget?');" class="d-inline">
+                  {{ csrf_field() }}
+                  <input type="hidden" name="action" value="remove_member">
+                  <input type="hidden" name="member_user_id" value="{{ m.id }}">
+                  <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-person-x"></i></button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if currentUserRole == 'owner' %}
+      <hr class="my-3">
+      <h6 class="fw-bold mb-2"><i class="bi bi-person-plus text-primary me-2"></i>Invite Member by Username</h6>
+      <form method="post" class="d-flex gap-2">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="invite_member">
+        <input type="text" name="invite_username" class="form-control form-control-sm" placeholder="e.g. spouse_username" required>
+        <button class="btn btn-sm btn-primary" type="submit">Invite</button>
+      </form>
+      <div class="form-text">The invited user will instantly gain shared access to view and update this budget.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <!-- Switch Active Budget -->
+    <div class="card p-3 shadow-sm mb-4">
+      <h5 class="fw-bold mb-3"><i class="bi bi-arrow-repeat text-info me-2"></i>Switch Active Budget</h5>
+      <form method="post">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="switch_budget">
+        <div class="mb-3">
+          <label class="form-label small">Select Budget</label>
+          <select name="budget_id" class="form-select" onchange="this.form.submit()">
+            {% for b in userBudgets %}
+              <option value="{{ b.id }}" {% if b.id == activeBudget.id %}selected{% endif %}>
+                {{ b.name }} ({% if b.owner_id == user.id %}Owner{% else %}Member{% endif %})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </form>
+    </div>
+
+    <!-- Create New Household Budget -->
+    <div class="card p-3 shadow-sm mb-4">
+      <h5 class="fw-bold mb-3"><i class="bi bi-plus-circle text-primary me-2"></i>Create New Shared Budget</h5>
+      <form method="post">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="create_budget">
+        <div class="mb-2">
+          <label class="form-label small">Budget Name</label>
+          <input type="text" name="budget_name" class="form-control" placeholder="e.g. Family Budget 2025" required>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small">Currency Code</label>
+            <select name="currency_code" class="form-select">
+              <option value="NGN">NGN (Naira)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="KES">KES (KSh)</option>
+              <option value="GHS">GHS (GH₵)</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Symbol</label>
+            <input type="text" name="currency_symbol" class="form-control" value="₦" required>
+          </div>
+        </div>
+        <button class="btn btn-primary w-100" type="submit">Create Budget</button>
+      </form>
+    </div>
+
+    {% if currentUserRole == 'owner' %}
+    <!-- Currency Settings -->
+    <div class="card p-3 shadow-sm">
+      <h5 class="fw-bold mb-3"><i class="bi bi-currency-exchange text-warning me-2"></i>Multi-Currency Settings</h5>
+      <form method="post">
+        {{ csrf_field() }}
+        <input type="hidden" name="action" value="update_currency">
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small">ISO Currency Code</label>
+            <input type="text" name="currency_code" class="form-control" value="{{ activeBudget.currency_code }}" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Symbol</label>
+            <input type="text" name="currency_symbol" class="form-control" value="{{ activeBudget.currency_symbol }}" required>
+          </div>
+        </div>
+        <button class="btn btn-outline-primary w-100" type="submit">Save Currency Settings</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% include 'layout_footer.twig' %}

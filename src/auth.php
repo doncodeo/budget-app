@@ -10,7 +10,10 @@ function current_user(): ?array
     if ($user !== null) {
         return $user;
     }
-    $stmt = get_db()->prepare('SELECT id, username, currency_symbol FROM users WHERE id = ?');
+    $stmt = get_db()->prepare('SELECT u.id, u.username, u.active_budget_id, u.theme, b.name AS budget_name, b.currency_symbol, b.currency_code
+                               FROM users u
+                               LEFT JOIN budgets b ON b.id = u.active_budget_id
+                               WHERE u.id = ?');
     $stmt->execute([$_SESSION['user_id']]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
@@ -95,7 +98,7 @@ function csrf_field(): string
 
 function check_csrf(): void
 {
-    $token = $_POST['csrf'] ?? '';
+    $token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
     if (!hash_equals($_SESSION['csrf'] ?? '', $token)) {
         http_response_code(400);
         die('Invalid or expired form submission. Please go back and try again.');

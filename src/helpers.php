@@ -11,51 +11,74 @@ function h(?string $s): string
     return htmlspecialchars($s ?? '', ENT_QUOTES);
 }
 
-/** All active categories for a user, ordered by sort_order. */
-function get_categories(PDO $pdo, int $userId): array
+function get_active_budget_id(PDO $pdo, int $userId): int
 {
-    $stmt = $pdo->prepare('SELECT * FROM categories WHERE user_id = ? AND archived = 0 ORDER BY sort_order, id');
+    $stmt = $pdo->prepare('SELECT active_budget_id FROM users WHERE id = ?');
     $stmt->execute([$userId]);
+    $budgetId = $stmt->fetchColumn();
+    if ($budgetId) {
+        return (int)$budgetId;
+    }
+    // Fallback: get first budget where user is a member
+    $stmt = $pdo->prepare('SELECT budget_id FROM budget_members WHERE user_id = ? LIMIT 1');
+    $stmt->execute([$userId]);
+    $budgetId = $stmt->fetchColumn();
+    if ($budgetId) {
+        return (int)$budgetId;
+    }
+    return 0;
+}
+
+/** All active categories for a budget, ordered by sort_order. */
+function get_categories(PDO $pdo, int $userId, ?int $budgetId = null): array
+{
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT * FROM categories WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND archived = 0 ORDER BY sort_order, id');
+    $stmt->execute([$budgetId, $userId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /** Categories grouped by group_name, preserving sort_order. */
-function get_categories_grouped(PDO $pdo, int $userId): array
+function get_categories_grouped(PDO $pdo, int $userId, ?int $budgetId = null): array
 {
     $groups = [];
-    foreach (get_categories($pdo, $userId) as $cat) {
+    foreach (get_categories($pdo, $userId, $budgetId) as $cat) {
         $groups[$cat['group_name']][] = $cat;
     }
     return $groups;
 }
 
-/** All years a user has set up, descending. */
-function get_years(PDO $pdo, int $userId): array
+/** All years set up for a budget, descending. */
+function get_years(PDO $pdo, int $userId, ?int $budgetId = null): array
 {
-    $stmt = $pdo->prepare('SELECT year FROM years WHERE user_id = ? ORDER BY year DESC');
-    $stmt->execute([$userId]);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT DISTINCT year FROM years WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) ORDER BY year DESC');
+    $stmt->execute([$budgetId, $userId]);
     return array_map('intval', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'year'));
 }
 
-function get_salary(PDO $pdo, int $userId, int $year, string $month): float
+function get_salary(PDO $pdo, int $userId, int $year, string $month, ?int $budgetId = null): float
 {
-    $stmt = $pdo->prepare('SELECT salary FROM income WHERE user_id = ? AND year = ? AND month = ?');
-    $stmt->execute([$userId, $year, $month]);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT salary FROM income WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND year = ? AND month = ?');
+    $stmt->execute([$budgetId, $userId, $year, $month]);
     $v = $stmt->fetchColumn();
     return $v === false ? 0.0 : (float)$v;
 }
 
-function get_other_income_total(PDO $pdo, int $userId, int $year, string $month): float
+function get_other_income_total(PDO $pdo, int $userId, int $year, string $month, ?int $budgetId = null): float
 {
-    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM other_income WHERE user_id = ? AND year = ? AND month = ?');
-    $stmt->execute([$userId, $year, $month]);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM other_income WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND year = ? AND month = ?');
+    $stmt->execute([$budgetId, $userId, $year, $month]);
     return (float)$stmt->fetchColumn();
 }
 
-function get_other_expense_total(PDO $pdo, int $userId, int $year, string $month): float
+function get_other_expense_total(PDO $pdo, int $userId, int $year, string $month, ?int $budgetId = null): float
 {
-    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM other_expenses WHERE user_id = ? AND year = ? AND month = ?');
-    $stmt->execute([$userId, $year, $month]);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM other_expenses WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND year = ? AND month = ?');
+    $stmt->execute([$budgetId, $userId, $year, $month]);
     return (float)$stmt->fetchColumn();
 }
 
@@ -68,34 +91,45 @@ function category_budget(array $category, float $salary): float
     return (float)$category['fixed_amount'];
 }
 
-function get_actual(PDO $pdo, int $userId, int $categoryId, int $year, string $month): float
+function get_actual(PDO $pdo, int $userId, int $categoryId, int $year, string $month, ?int $budgetId = null): float
 {
-    $stmt = $pdo->prepare('SELECT actual FROM tracker_actuals WHERE user_id = ? AND category_id = ? AND year = ? AND month = ?');
-    $stmt->execute([$userId, $categoryId, $year, $month]);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT actual FROM tracker_actuals WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND category_id = ? AND year = ? AND month = ?');
+    $stmt->execute([$budgetId, $userId, $categoryId, $year, $month]);
     $v = $stmt->fetchColumn();
     return $v === false ? 0.0 : (float)$v;
 }
 
-function set_actual(PDO $pdo, int $userId, int $categoryId, int $year, string $month, float $value): void
+function set_actual(PDO $pdo, int $userId, int $categoryId, int $year, string $month, float $value, ?int $budgetId = null): void
 {
-    $stmt = $pdo->prepare(
-        'INSERT INTO tracker_actuals (user_id, category_id, year, month, actual) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(category_id, year, month) DO UPDATE SET actual = excluded.actual'
-    );
-    $stmt->execute([$userId, $categoryId, $year, $month, $value]);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    // Check if exists
+    $stmt = $pdo->prepare('SELECT id FROM tracker_actuals WHERE budget_id = ? AND category_id = ? AND year = ? AND month = ?');
+    $stmt->execute([$budgetId, $categoryId, $year, $month]);
+    $id = $stmt->fetchColumn();
+
+    if ($id) {
+        $stmt = $pdo->prepare('UPDATE tracker_actuals SET actual = ? WHERE id = ?');
+        $stmt->execute([$value, $id]);
+    } else {
+        $stmt = $pdo->prepare('INSERT INTO tracker_actuals (budget_id, user_id, category_id, year, month, actual) VALUES (?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$budgetId, $userId, $categoryId, $year, $month, $value]);
+    }
 }
 
-function get_transfer_in(PDO $pdo, int $userId, int $categoryId, int $year, string $month): float
+function get_transfer_in(PDO $pdo, int $userId, int $categoryId, int $year, string $month, ?int $budgetId = null): float
 {
-    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM transfers WHERE user_id = ? AND to_category_id = ? AND year = ? AND month = ?');
-    $stmt->execute([$userId, $categoryId, $year, $month]);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM transfers WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND to_category_id = ? AND year = ? AND month = ?');
+    $stmt->execute([$budgetId, $userId, $categoryId, $year, $month]);
     return (float)$stmt->fetchColumn();
 }
 
-function get_transfer_out(PDO $pdo, int $userId, int $categoryId, int $year, string $month): float
+function get_transfer_out(PDO $pdo, int $userId, int $categoryId, int $year, string $month, ?int $budgetId = null): float
 {
-    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM transfers WHERE user_id = ? AND from_category_id = ? AND year = ? AND month = ?');
-    $stmt->execute([$userId, $categoryId, $year, $month]);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) FROM transfers WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND from_category_id = ? AND year = ? AND month = ?');
+    $stmt->execute([$budgetId, $userId, $categoryId, $year, $month]);
     return (float)$stmt->fetchColumn();
 }
 
@@ -103,31 +137,33 @@ function get_transfer_out(PDO $pdo, int $userId, int $categoryId, int $year, str
  * Full tracker row for one category/month:
  * ['budget'=>, 'actual'=>, 'in'=>, 'out'=>, 'closing'=>]
  */
-function tracker_row(PDO $pdo, int $userId, array $category, int $year, string $month, float $salary): array
+function tracker_row(PDO $pdo, int $userId, array $category, int $year, string $month, float $salary, ?int $budgetId = null): array
 {
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
     $budget = category_budget($category, $salary);
     $actual = $category['is_other']
-        ? get_other_expense_total($pdo, $userId, $year, $month)
-        : get_actual($pdo, $userId, (int)$category['id'], $year, $month);
-    $in = get_transfer_in($pdo, $userId, (int)$category['id'], $year, $month);
-    $out = get_transfer_out($pdo, $userId, (int)$category['id'], $year, $month);
+        ? get_other_expense_total($pdo, $userId, $year, $month, $budgetId)
+        : get_actual($pdo, $userId, (int)$category['id'], $year, $month, $budgetId);
+    $in = get_transfer_in($pdo, $userId, (int)$category['id'], $year, $month, $budgetId);
+    $out = get_transfer_out($pdo, $userId, (int)$category['id'], $year, $month, $budgetId);
     $closing = $budget - $actual + $in - $out;
 
     return compact('budget', 'actual', 'in', 'out', 'closing');
 }
 
 /** Full tracker grid for a whole month: every category with its computed row. */
-function tracker_month(PDO $pdo, int $userId, int $year, string $month): array
+function tracker_month(PDO $pdo, int $userId, int $year, string $month, ?int $budgetId = null): array
 {
-    $salary = get_salary($pdo, $userId, $year, $month);
-    $grouped = get_categories_grouped($pdo, $userId);
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
+    $grouped = get_categories_grouped($pdo, $userId, $budgetId);
     $result = [];
-    $totals = ['budget' => 0, 'actual' => 0, 'in' => 0, 'out' => 0, 'closing' => 0];
+    $totals = ['budget' => 0.0, 'actual' => 0.0, 'in' => 0.0, 'out' => 0.0, 'closing' => 0.0];
 
     foreach ($grouped as $groupName => $cats) {
         $rows = [];
         foreach ($cats as $cat) {
-            $row = tracker_row($pdo, $userId, $cat, $year, $month, $salary);
+            $row = tracker_row($pdo, $userId, $cat, $year, $month, $salary, $budgetId);
             $row['category'] = $cat;
             $rows[] = $row;
             foreach (['budget', 'actual', 'in', 'out', 'closing'] as $k) {
