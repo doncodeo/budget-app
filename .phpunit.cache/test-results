@@ -1,0 +1,1 @@
+{"version":2,"defects":[],"times":{"App\\Tests\\HelpersTest::testCategoryBudgetFixed":0.003,"App\\Tests\\HelpersTest::testCategoryBudgetPercent":0,"App\\Tests\\HelpersTest::testFmtMoney":0,"App\\Tests\\ValidatorTest::testRequiredValidation":0,"App\\Tests\\ValidatorTest::testNumericAndMinValidation":0}}

@@ -36,6 +36,15 @@ if ($catId <= 0 || $year < 2000 || !in_array($month, MONTHS, true)) {
     exit;
 }
 
+$budgetId = get_active_budget_id($pdo, $userId);
+$catStmt = $pdo->prepare('SELECT id FROM categories WHERE id = ? AND (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND archived = 0');
+$catStmt->execute([$catId, $budgetId, $userId]);
+if (!$catStmt->fetch()) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid category']);
+    exit;
+}
+
 set_actual($pdo, $userId, $catId, $year, $month, $actual);
 
 // Recalculate month data to return updated row closing balance and total values
