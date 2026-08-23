@@ -35,12 +35,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flash = $validator->getFirstError();
             $flashType = 'danger';
         } else {
-            $year = (int)$_POST['year'];
-            $month = $_POST['month'];
             $amount = (float)$_POST['amount'];
             $reason = trim($_POST['description'] ?? $_POST['reason'] ?? '');
             $approved = $_POST['approved'] ?? 'Pending';
             $date = $_POST['transfer_date'] ?? $_POST['entry_date'] ?: date('Y-m-d');
+
+            $ts = strtotime($date);
+            if ($ts !== false) {
+                $year = (int)date('Y', $ts);
+                $month = MONTHS[(int)date('n', $ts) - 1];
+            } else {
+                $year = (int)$_POST['year'];
+                $month = $_POST['month'];
+            }
 
             ensure_year($pdo, $userId, $year, $budgetId);
             $stmt = $pdo->prepare(

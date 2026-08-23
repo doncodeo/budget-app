@@ -64,16 +64,27 @@
               <strong><?= h($b['name']) ?></strong>
               <div class="small text-muted">Currency: <?= h($b['currency_code'] ?? 'NGN') ?> (<?= h($b['currency_symbol'] ?? '₦') ?>) &bull; Role: <?= h($b['role'] ?? 'owner') ?></div>
             </div>
-            <?php if ((int)$b['id'] === (int)$activeBudget['id']): ?>
-              <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i> Active</span>
-            <?php else: ?>
-              <form method="post">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="switch_budget">
-                <input type="hidden" name="budget_id" value="<?= $b['id'] ?>">
-                <button class="btn btn-sm btn-outline-secondary" type="submit">Switch</button>
-              </form>
-            <?php endif; ?>
+            <div class="d-flex align-items-center gap-2">
+              <?php if ((int)$b['id'] === (int)$activeBudget['id']): ?>
+                <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i> Active</span>
+              <?php else: ?>
+                <form method="post" class="d-inline">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="switch_budget">
+                  <input type="hidden" name="budget_id" value="<?= $b['id'] ?>">
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Switch</button>
+                </form>
+              <?php endif; ?>
+
+              <?php if ($b['role'] === 'owner'): ?>
+                <form method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to PERMANENTLY delete this budget and all its associated data?')">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="delete_budget">
+                  <input type="hidden" name="budget_id" value="<?= $b['id'] ?>">
+                  <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete Budget"><i class="bi bi-trash"></i></button>
+                </form>
+              <?php endif; ?>
+            </div>
           </div>
         <?php endforeach; ?>
       </div>
@@ -81,6 +92,24 @@
   </div>
 
   <div class="col-lg-5">
+    <!-- Manage / Delete Budget Years -->
+    <div class="card p-3 shadow-sm mb-4">
+      <h5 class="fw-bold mb-3"><i class="bi bi-calendar-x text-danger me-2"></i>Delete Budget Year</h5>
+      <p class="small text-muted mb-2">Select a year to remove from this active budget along with all its logged data.</p>
+      <form method="post" onsubmit="return confirm('Are you sure you want to delete this entire budget year and all logged data for it?')">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="delete_year">
+        <div class="input-group input-group-sm">
+          <select name="year" class="form-select" required>
+            <?php foreach ($budgetYears as $y): ?>
+              <option value="<?= $y ?>"><?= $y ?></option>
+            <?php endforeach; ?>
+          </select>
+          <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash me-1"></i> Delete Year</button>
+        </div>
+      </form>
+    </div>
+
     <!-- Create New Shared Budget -->
     <div class="card p-3 shadow-sm">
       <h5 class="fw-bold mb-3"><i class="bi bi-plus-circle text-primary me-2"></i>Create New Shared Budget</h5>

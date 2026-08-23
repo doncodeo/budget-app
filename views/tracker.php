@@ -42,7 +42,14 @@
                   <div class="small text-muted"><?= h($r['category']['notes']) ?></div>
                 <?php endif; ?>
               </td>
-              <td class="text-end fw-semibold"><?= fmt_money($r['budget'], $symbol) ?></td>
+              <td class="text-end fw-semibold">
+                <?= fmt_money($r['budget'], $symbol) ?>
+                <?php if ($salary > 0): ?>
+                  <div class="small text-muted fw-normal" style="font-size: 0.75rem;">
+                    <?= number_format(($r['budget'] / $salary) * 100, 2) ?>% of salary
+                  </div>
+                <?php endif; ?>
+              </td>
               <td class="text-end input-cell">
                 <?php if ($r['category']['is_other']): ?>
                   <span class="text-muted" title="Pulls automatically from Other Expenses log"><?= fmt_money($r['actual'], $symbol) ?></span>

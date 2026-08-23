@@ -78,6 +78,10 @@ if ($editId) {
 
 $categories = get_categories($pdo, $userId, $budgetId);
 
+$selectedYear = (int)($_SESSION['selected_year'] ?? date('Y'));
+$selectedMonth = $_SESSION['selected_month'] ?? date('M');
+$activeSalary = get_salary($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
+
 render_template('settings.twig', [
     'activePage' => 'settings',
     'pageTitle' => 'Settings',
@@ -87,4 +91,5 @@ render_template('settings.twig', [
     'editCat' => $editCat,
     'editingCat' => $editCat,
     'symbol' => $symbol,
+    'activeSalary' => $activeSalary,
 ]);

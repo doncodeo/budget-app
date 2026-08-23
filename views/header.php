@@ -73,6 +73,7 @@ $userTheme = $user['theme'] ?? 'light';
         <li class="nav-item"><a class="nav-link <?= $activePage==='other_expenses'?'active fw-bold':'' ?>" href="other_expenses.php"><i class="bi bi-box-arrow-up"></i> Other Expenses</a></li>
         <li class="nav-item"><a class="nav-link <?= $activePage==='household'?'active fw-bold':'' ?>" href="household.php"><i class="bi bi-people"></i> Household</a></li>
         <li class="nav-item"><a class="nav-link <?= $activePage==='settings'?'active fw-bold':'' ?>" href="settings.php"><i class="bi bi-gear"></i> Settings</a></li>
+        <li class="nav-item"><a class="nav-link <?= $activePage==='about'?'active fw-bold':'' ?>" href="about.php"><i class="bi bi-question-circle"></i> About</a></li>
       </ul>
 
       <!-- Persistent Year & Month Selector -->

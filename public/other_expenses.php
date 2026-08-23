@@ -30,12 +30,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flash = $validator->getFirstError();
             $flashType = 'danger';
         } else {
-            $year = (int)$_POST['year'];
-            $month = $_POST['month'];
             $description = trim($_POST['description']);
             $amount = (float)$_POST['amount'];
             $notes = trim($_POST['notes'] ?? '');
             $date = $_POST['entry_date'] ?: date('Y-m-d');
+
+            $ts = strtotime($date);
+            if ($ts !== false) {
+                $year = (int)date('Y', $ts);
+                $month = MONTHS[(int)date('n', $ts) - 1];
+            } else {
+                $year = (int)$_POST['year'];
+                $month = $_POST['month'];
+            }
 
             ensure_year($pdo, $userId, $year, $budgetId);
             $stmt = $pdo->prepare(
