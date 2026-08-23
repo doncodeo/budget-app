@@ -17,33 +17,52 @@
           </thead>
           <tbody>
             <?php foreach ($categories as $cat): ?>
-              <tr>
-                <td><strong><?= h($cat['name']) ?></strong></td>
-                <td><span class="badge bg-secondary-subtle text-secondary"><?= h($cat['group_name']) ?></span></td>
-                <td><?= h($cat['basis']) ?></td>
-                <td class="fw-semibold">
-                  <?php if ($cat['basis'] === 'percent'): ?>
-                    <?= number_format((float)$cat['percent'] * 100, 2) ?>%
-                  <?php else: ?>
-                    <?= fmt_money((float)$cat['fixed_amount'], $symbol) ?>
-                    <?php if (!empty($activeSalary) && $activeSalary > 0): ?>
-                      <div class="small text-muted fw-normal"><?= number_format(((float)$cat['fixed_amount'] / $activeSalary) * 100, 2) ?>% of salary</div>
+              <?php if ($cat['name'] === 'Monthly Buffer'): ?>
+                <tr class="table-light">
+                  <td>
+                    <strong><?= h($cat['name']) ?></strong>
+                    <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" title="Dynamically calculated residual of your base monthly plan (Salary − Base Planned Allocations).">
+                      <i class="bi bi-calculator me-1"></i> System Residual
+                    </span>
+                  </td>
+                  <td><span class="badge bg-secondary-subtle text-secondary"><?= h($cat['group_name']) ?></span></td>
+                  <td><span class="text-muted small">Calculated</span></td>
+                  <td class="fw-semibold text-primary">
+                    Residual
+                    <div class="small text-muted fw-normal">Salary − Base Planned</div>
+                  </td>
+                  <td class="small text-muted">Dynamically calculated residual of base monthly salary plan.</td>
+                  <td class="text-end text-muted small"><i class="bi bi-lock-fill" title="System calculated category"></i></td>
+                </tr>
+              <?php else: ?>
+                <tr>
+                  <td><strong><?= h($cat['name']) ?></strong></td>
+                  <td><span class="badge bg-secondary-subtle text-secondary"><?= h($cat['group_name']) ?></span></td>
+                  <td><?= h($cat['basis']) ?></td>
+                  <td class="fw-semibold">
+                    <?php if ($cat['basis'] === 'percent'): ?>
+                      <?= number_format((float)$cat['percent'] * 100, 2) ?>%
+                    <?php else: ?>
+                      <?= fmt_money((float)$cat['fixed_amount'], $symbol) ?>
+                      <?php if (!empty($activeSalary) && $activeSalary > 0): ?>
+                        <div class="small text-muted fw-normal"><?= number_format(((float)$cat['fixed_amount'] / $activeSalary) * 100, 2) ?>% of salary</div>
+                      <?php endif; ?>
                     <?php endif; ?>
-                  <?php endif; ?>
-                </td>
-                <td class="small text-muted"><?= h($cat['notes']) ?></td>
-                <td class="text-end">
-                  <a href="settings.php?edit=<?= $cat['id'] ?>" class="btn btn-sm btn-link p-0 text-primary me-2"><i class="bi bi-pencil"></i></a>
-                  <?php if (!$cat['is_other']): ?>
-                    <form method="post" class="d-inline" onsubmit="return confirm('Archive this category?')">
-                      <?= csrf_field() ?>
-                      <input type="hidden" name="action" value="archive">
-                      <input type="hidden" name="id" value="<?= $cat['id'] ?>">
-                      <button class="btn btn-sm btn-link text-danger p-0" type="submit"><i class="bi bi-archive"></i></button>
-                    </form>
-                  <?php endif; ?>
-                </td>
-              </tr>
+                  </td>
+                  <td class="small text-muted"><?= h($cat['notes']) ?></td>
+                  <td class="text-end">
+                    <a href="settings.php?edit=<?= $cat['id'] ?>" class="btn btn-sm btn-link p-0 text-primary me-2"><i class="bi bi-pencil"></i></a>
+                    <?php if (!$cat['is_other']): ?>
+                      <form method="post" class="d-inline" onsubmit="return confirm('Archive this category?')">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="archive">
+                        <input type="hidden" name="id" value="<?= $cat['id'] ?>">
+                        <button class="btn btn-sm btn-link text-danger p-0" type="submit"><i class="bi bi-archive"></i></button>
+                      </form>
+                    <?php endif; ?>
+                  </td>
+                </tr>
+              <?php endif; ?>
             <?php endforeach; ?>
           </tbody>
         </table>

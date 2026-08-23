@@ -168,4 +168,28 @@ class FinancialEngineTest extends TestCase
         $this->assertEquals(4000.0, $savingsRow['in']);
         $this->assertEquals(4000.0, $savingsRow['closing']);
     }
+
+    public function testMidYearStartTrackingAndZeroSalaryMonths(): void
+    {
+        // User starts salary tracking from September (salary = 385,000 for Sep-Dec, 0 for Jan-Aug)
+        $upd = $this->pdo->prepare('UPDATE income SET salary = ? WHERE budget_id = ? AND year = ? AND month = ?');
+        foreach (MONTHS as $m) {
+            $sal = in_array($m, ['Sep', 'Oct', 'Nov', 'Dec'], true) ? 385000 : 0;
+            $upd->execute([$sal, $this->budgetId, 2026, $m]);
+        }
+
+        // Verify January (zero income month) produces Balanced status without over-allocation errors
+        $janSummary = calculate_budget_summary($this->pdo, $this->userId, 2026, 'Jan', $this->budgetId);
+        $this->assertEquals(0.0, $janSummary['total_income']);
+        $this->assertEquals(0.0, $janSummary['base_planned']);
+        $this->assertEquals(0.0, $janSummary['ready_to_assign']);
+        $this->assertEquals('Balanced', $janSummary['budget_status']);
+
+        // Verify September (active tracking month) calculates full base planned budget and balanced state
+        $sepSummary = calculate_budget_summary($this->pdo, $this->userId, 2026, 'Sep', $this->budgetId);
+        $this->assertEquals(385000.0, $sepSummary['total_income']);
+        $this->assertEquals(385000.0, $sepSummary['total_base_planned']);
+        $this->assertEquals(0.0, $sepSummary['ready_to_assign']);
+        $this->assertEquals('Balanced', $sepSummary['budget_status']);
+    }
 }

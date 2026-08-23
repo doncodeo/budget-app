@@ -24,10 +24,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $validator = new Validator($_POST);
         $validator->required('name', 'Category Name');
 
-        if (!$validator->isValid()) {
+        $catId = (int)($_POST['id'] ?? $_POST['category_id'] ?? 0);
+        if ($catId > 0) {
+            $checkCat = $pdo->prepare('SELECT name FROM categories WHERE id = ? AND budget_id = ?');
+            $checkCat->execute([$catId, $budgetId]);
+            $existingName = $checkCat->fetchColumn();
+            if ($existingName === 'Monthly Buffer') {
+                $flash = 'Monthly Buffer is dynamically calculated as the residual of your base monthly plan and cannot be manually modified.';
+                $flashType = 'danger';
+            }
+        }
+
+        if ($flashType !== 'danger' && !$validator->isValid()) {
             $flash = $validator->getFirstError();
             $flashType = 'danger';
-        } else {
+        } elseif ($flashType !== 'danger') {
             $name = trim($_POST['name']);
             $group = trim($_POST['group_name'] ?? '') ?: 'General';
             $basis = $_POST['basis'] === 'percent' ? 'percent' : 'fixed';
@@ -48,7 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
                     $stmt->execute([$budgetId, $userId, $name, $group, $basis, $fixed, $percent, $notes, $maxOrder + 1]);
                 } else {
-                    $catId = (int)($_POST['id'] ?? $_POST['category_id'] ?? 0);
                     $stmt = $pdo->prepare(
                         'UPDATE categories SET name=?, group_name=?, basis=?, fixed_amount=?, percent=?, notes=?
                          WHERE id=? AND budget_id=?'
@@ -116,7 +126,13 @@ $editCat = null;
 if ($editId) {
     $stmt = $pdo->prepare('SELECT * FROM categories WHERE id=? AND budget_id=?');
     $stmt->execute([$editId, $budgetId]);
-    $editCat = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $cat = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    if ($cat && $cat['name'] === 'Monthly Buffer') {
+        $flash = 'Monthly Buffer is dynamically calculated as the residual of your base monthly plan and cannot be manually modified.';
+        $flashType = 'info';
+    } else {
+        $editCat = $cat;
+    }
 }
 
 $categories = get_categories($pdo, $userId, $budgetId);
