@@ -105,11 +105,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $symbol = trim($_POST['currency_symbol'] ?? '₦');
         $pdo->prepare("UPDATE budgets SET currency_code = ?, currency_symbol = ? WHERE id = ?")->execute([$code, $symbol, $budgetId]);
         $flash = "Currency settings updated.";
+    } elseif ($action === 'delete_budget') {
+        $delBudgetId = (int)($_POST['budget_id'] ?? 0);
+        // Verify user is owner of target budget
+        $stmt = $pdo->prepare("SELECT owner_id FROM budgets WHERE id = ?");
+        $stmt->execute([$delBudgetId]);
+        $ownerId = $stmt->fetchColumn();
+
+        if ((int)$ownerId === $userId) {
+            // Delete budget and cascading data
+            $pdo->prepare("DELETE FROM budgets WHERE id = ?")->execute([$delBudgetId]);
+            $pdo->prepare("DELETE FROM budget_members WHERE budget_id = ?")->execute([$delBudgetId]);
+            $pdo->prepare("DELETE FROM categories WHERE budget_id = ?")->execute([$delBudgetId]);
+            $pdo->prepare("DELETE FROM years WHERE budget_id = ?")->execute([$delBudgetId]);
+            $pdo->prepare("DELETE FROM income WHERE budget_id = ?")->execute([$delBudgetId]);
+            $pdo->prepare("DELETE FROM other_income WHERE budget_id = ?")->execute([$delBudgetId]);
+            $pdo->prepare("DELETE FROM other_expenses WHERE budget_id = ?")->execute([$delBudgetId]);
+            $pdo->prepare("DELETE FROM tracker_actuals WHERE budget_id = ?")->execute([$delBudgetId]);
+            $pdo->prepare("DELETE FROM transfers WHERE budget_id = ?")->execute([$delBudgetId]);
+
+            // If active budget was deleted, pick another or create default
+            if ($delBudgetId === $budgetId) {
+                $remStmt = $pdo->prepare("SELECT budget_id FROM budget_members WHERE user_id = ? LIMIT 1");
+                $remStmt->execute([$userId]);
+                $nextBudgetId = $remStmt->fetchColumn();
+                if (!$nextBudgetId) {
+                    // Create fresh personal budget
+                    $stmt = $pdo->prepare("INSERT INTO budgets (name, owner_id, currency_code, currency_symbol) VALUES (?, ?, 'NGN', '₦')");
+                    $stmt->execute(["{$user['username']}'s Budget", $userId]);
+                    $nextBudgetId = (int)$pdo->lastInsertId();
+                    $pdo->prepare("INSERT INTO budget_members (budget_id, user_id, role) VALUES (?, ?, 'owner')")->execute([$nextBudgetId, $userId]);
+                }
+                $pdo->prepare("UPDATE users SET active_budget_id = ? WHERE id = ?")->execute([$nextBudgetId, $userId]);
+            }
+            header('Location: household.php?deleted=1');
+            exit;
+        } else {
+            $flash = "Only the budget owner can delete this budget.";
+            $flashType = 'danger';
+        }
+    } elseif ($action === 'delete_year') {
+        $yearToDelete = (int)($_POST['year'] ?? 0);
+        if ($yearToDelete > 0) {
+            $pdo->prepare("DELETE FROM years WHERE budget_id = ? AND year = ?")->execute([$budgetId, $yearToDelete]);
+            $pdo->prepare("DELETE FROM income WHERE budget_id = ? AND year = ?")->execute([$budgetId, $yearToDelete]);
+            $pdo->prepare("DELETE FROM other_income WHERE budget_id = ? AND year = ?")->execute([$budgetId, $yearToDelete]);
+            $pdo->prepare("DELETE FROM other_expenses WHERE budget_id = ? AND year = ?")->execute([$budgetId, $yearToDelete]);
+            $pdo->prepare("DELETE FROM tracker_actuals WHERE budget_id = ? AND year = ?")->execute([$budgetId, $yearToDelete]);
+            $pdo->prepare("DELETE FROM transfers WHERE budget_id = ? AND year = ?")->execute([$budgetId, $yearToDelete]);
+
+            // Ensure current year still exists
+            ensure_year($pdo, $userId, (int)date('Y'), $budgetId);
+            header('Location: household.php?year_deleted=1');
+            exit;
+        }
     }
 }
 
 if (isset($_GET['created'])) $flash = "New shared budget created!";
 if (isset($_GET['switched'])) $flash = "Active budget switched.";
+if (isset($_GET['deleted'])) $flash = "Budget deleted successfully.";
+if (isset($_GET['year_deleted'])) $flash = "Year and associated records deleted.";
 
 // Get active budget details
 $bStmt = $pdo->prepare("SELECT b.*, u.username AS owner_name FROM budgets b JOIN users u ON u.id = b.owner_id WHERE b.id = ?");
@@ -135,6 +191,8 @@ foreach ($members as $m) {
     }
 }
 
+$budgetYears = get_years($pdo, $userId, $budgetId);
+
 render_template('household.twig', [
     'activePage' => 'household',
     'pageTitle' => 'Household & Shared Budgets',
@@ -144,4 +202,5 @@ render_template('household.twig', [
     'members' => $members,
     'userBudgets' => $userBudgets,
     'currentUserRole' => $currentUserRole,
+    'budgetYears' => $budgetYears,
 ]);

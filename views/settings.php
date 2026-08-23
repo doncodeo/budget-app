@@ -22,7 +22,14 @@
                 <td><span class="badge bg-secondary-subtle text-secondary"><?= h($cat['group_name']) ?></span></td>
                 <td><?= h($cat['basis']) ?></td>
                 <td class="fw-semibold">
-                  <?= $cat['basis'] === 'percent' ? ((float)$cat['percent'] * 100) . '%' : fmt_money((float)$cat['fixed_amount'], $symbol) ?>
+                  <?php if ($cat['basis'] === 'percent'): ?>
+                    <?= number_format((float)$cat['percent'] * 100, 2) ?>%
+                  <?php else: ?>
+                    <?= fmt_money((float)$cat['fixed_amount'], $symbol) ?>
+                    <?php if (!empty($activeSalary) && $activeSalary > 0): ?>
+                      <div class="small text-muted fw-normal"><?= number_format(((float)$cat['fixed_amount'] / $activeSalary) * 100, 2) ?>% of salary</div>
+                    <?php endif; ?>
+                  <?php endif; ?>
                 </td>
                 <td class="small text-muted"><?= h($cat['notes']) ?></td>
                 <td class="text-end">
@@ -82,7 +89,7 @@
         </div>
         <div class="mb-2" id="percentField" style="display:none">
           <label class="form-label small">% of Salary</label>
-          <input type="number" step="0.01" name="percent" class="form-control form-control-sm" value="<?= !empty($editingCat['percent']) ? ((float)$editingCat['percent'] * 100) : '' ?>">
+          <input type="number" step="0.01" name="percent" class="form-control form-control-sm" value="<?= !empty($editingCat['percent']) ? number_format((float)$editingCat['percent'] * 100, 2) : '' ?>">
         </div>
         <div class="mb-3">
           <label class="form-label small">Notes</label>

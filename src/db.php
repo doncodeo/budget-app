@@ -232,6 +232,28 @@ function migrate_schema(PDO $pdo): void
             $updD->execute([$budgetId, $userId]);
         }
     }
+
+    // Auto-repair date vs year/month mismatch for logs
+    repair_mismatched_dates($pdo);
+}
+
+function repair_mismatched_dates(PDO $pdo): void
+{
+    $logTables = ['other_income', 'other_expenses', 'transfers'];
+    foreach ($logTables as $table) {
+        $rows = $pdo->query("SELECT id, entry_date, year, month FROM $table WHERE entry_date IS NOT NULL AND entry_date != ''")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $r) {
+            $ts = strtotime($r['entry_date']);
+            if ($ts !== false) {
+                $correctYear = (int)date('Y', $ts);
+                $correctMonth = MONTHS[(int)date('n', $ts) - 1];
+                if ($r['year'] !== $correctYear || $r['month'] !== $correctMonth) {
+                    $stmt = $pdo->prepare("UPDATE $table SET year = ?, month = ? WHERE id = ?");
+                    $stmt->execute([$correctYear, $correctMonth, $r['id']]);
+                }
+            }
+        }
+    }
 }
 
 /** Create a brand new user's default budget + categories + current year. */

@@ -1,8 +1,9 @@
 </div>
 <footer class="text-center py-4 text-muted border-top mt-5">
   <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-    <small>&copy; <?= date('Y') ?> <strong>dadaNet Personal Finance Budget</strong> &mdash; Private, Fault-Tolerant, Multi-User Shared Budgeting.</small>
+    <small>&copy; <?= date('Y') ?> <strong>dadaNet Personal Finance Budget</strong></small>
     <div class="d-flex align-items-center gap-3 small">
+      <a href="about.php" class="text-decoration-none text-muted"><i class="bi bi-info-circle me-1"></i> About & Tutorial</a>
       <a href="https://x.com/EmmaOmolewu" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-muted">
         <i class="bi bi-twitter-x me-1"></i> @EmmaOmolewu
       </a>
