@@ -36,18 +36,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $upd = $pdo->prepare('UPDATE income SET salary = ? WHERE id = ?');
     $ins = $pdo->prepare('INSERT INTO income (budget_id, user_id, year, month, salary) VALUES (?, ?, ?, ?, ?)');
 
-    foreach (MONTHS as $m) {
-        $val = (float)($_POST['salary'][$m] ?? 0);
-        $stmt->execute([$budgetId, $year, $m]);
-        $incId = $stmt->fetchColumn();
-        if ($incId) {
-            $upd->execute([$val, $incId]);
-        } else {
-            $ins->execute([$budgetId, $userId, $year, $m, $val]);
+    $pdo->beginTransaction();
+    try {
+        foreach (MONTHS as $m) {
+            $val = (float)($_POST['salary'][$m] ?? 0);
+            if ($val < 0) {
+                throw new \Exception("Salary cannot be negative.");
+            }
+            $stmt->execute([$budgetId, $year, $m]);
+            $incId = $stmt->fetchColumn();
+            if ($incId) {
+                $upd->execute([$val, $incId]);
+            } else {
+                $ins->execute([$budgetId, $userId, $year, $m, $val]);
+            }
+
+            $summary = calculate_budget_summary($pdo, $userId, $year, $m, $budgetId);
+            if ($summary['budget_status'] === 'Over-allocated') {
+                throw new \Exception(sprintf(
+                    'This salary change for %s would exceed available income by %s.',
+                    $m,
+                    fmt_money($summary['over_allocated_amount'], $symbol)
+                ));
+            }
         }
+        $pdo->commit();
+        header("Location: income.php?year=$year&saved=1");
+        exit;
+    } catch (\Throwable $e) {
+        $pdo->rollBack();
+        $flash = $e->getMessage();
+        $flashType = 'danger';
     }
-    header("Location: income.php?year=$year&saved=1");
-    exit;
 }
 
 if (isset($_GET['saved'])) {

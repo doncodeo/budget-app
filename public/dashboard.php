@@ -12,19 +12,50 @@ $pdo = get_db();
 $userId = (int)$user['id'];
 $symbol = $user['currency_symbol'];
 
+$budgetId = get_active_budget_id($pdo, $userId);
+
 $flash = null;
 $flashType = 'success';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_year') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     check_csrf();
-    $newYear = (int)($_POST['new_year'] ?? 0);
-    if ($newYear >= 2000 && $newYear <= 2100) {
-        ensure_year($pdo, $userId, $newYear);
-        $flash = "Year $newYear is ready. Enter its monthly salary on the Income page.";
-    } else {
-        $flash = 'Please enter a valid year.';
-        $flashType = 'danger';
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'add_year') {
+        $newYear = (int)($_POST['new_year'] ?? 0);
+        if ($newYear >= 2000 && $newYear <= 2100) {
+            ensure_year($pdo, $userId, $newYear, $budgetId);
+            $flash = "Year $newYear is ready. Enter its monthly salary on the Income page.";
+        } else {
+            $flash = 'Please enter a valid year.';
+            $flashType = 'danger';
+        }
+    } elseif ($action === 'allocate_income') {
+        $year = (int)($_POST['year'] ?? date('Y'));
+        $month = $_POST['month'] ?? MONTHS[(int)date('n') - 1];
+        $allocationsMap = $_POST['allocations'] ?? [];
+        $err = save_income_allocations($pdo, $userId, $year, $month, $allocationsMap, 'Other Income', $budgetId);
+        if ($err !== null) {
+            $flash = $err;
+            $flashType = 'danger';
+        } else {
+            header("Location: dashboard.php?year=$year&month=" . urlencode($month) . "&allocated=1");
+            exit;
+        }
+    } elseif ($action === 'delete_allocation') {
+        $id = (int)($_POST['allocation_id'] ?? 0);
+        $year = (int)($_POST['year'] ?? date('Y'));
+        $month = $_POST['month'] ?? MONTHS[(int)date('n') - 1];
+        $pdo->prepare('DELETE FROM income_allocations WHERE id = ? AND budget_id = ?')->execute([$id, $budgetId]);
+        header("Location: dashboard.php?year=$year&month=" . urlencode($month) . "&deleted_alloc=1");
+        exit;
     }
+}
+
+if (isset($_GET['allocated'])) {
+    $flash = 'Income allocated successfully and reflected on your Tracker.';
+} elseif (isset($_GET['deleted_alloc'])) {
+    $flash = 'Allocation record removed.';
 }
 
 $years = get_years($pdo, $userId);
@@ -65,6 +96,10 @@ $emergency = find_cat_row($data['groups'], 'Emergency Fund');
 $investment = find_cat_row($data['groups'], 'Investment');
 $buffer = find_cat_row($data['groups'], 'Monthly Buffer');
 
+$summary = calculate_budget_summary($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
+$categories = get_categories($pdo, $userId, $budgetId);
+$allocationsHistory = get_allocations_for_month($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
+
 $netHistory = BudgetService::getNetPositionHistory($pdo, $userId, $selectedYear, $selectedMonth, 12);
 $groupBreakdown = BudgetService::getGroupSpendingBreakdown($data);
 $progressList = BudgetService::getCategoryProgressList($data);
@@ -83,6 +118,9 @@ render_template('dashboard.twig', [
     'otherIncome' => $otherIncome,
     'totalIncome' => $totalIncome,
     'totals' => $totals,
+    'summary' => $summary,
+    'categories' => $categories,
+    'allocationsHistory' => $allocationsHistory,
     'rentSavings' => $rentSavings,
     'emergency' => $emergency,
     'investment' => $investment,

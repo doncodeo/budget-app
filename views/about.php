@@ -51,37 +51,58 @@
         </div>
 
         <div class="mb-4">
-          <h5 class="fw-bold text-dark mb-1">4. Log Unplanned / Extra Transactions</h5>
-          <p class="small text-muted mb-1">Use <strong>Other Income</strong> to record bonuses or side hustles, and <strong>Other Expenses</strong> for random ad-hoc expenditures.</p>
+          <h5 class="fw-bold text-dark mb-1">4. Manage Extra Income & Ready To Assign</h5>
+          <p class="small text-muted mb-1">When extra income (bonuses, gifts, side hustles) arrives, log it under <strong>Other Income</strong>. It immediately becomes <strong>Ready To Assign</strong> without altering your base plan.</p>
+        </div>
+
+        <div class="mb-4">
+          <h5 class="fw-bold text-dark mb-1">5. Allocate Ready To Assign Money</h5>
+          <p class="small text-muted mb-1">Click <strong>Allocate Income</strong> to assign Ready To Assign funds directly to your budget categories (e.g., Savings, Emergency Fund, Tithe). This increases the category's budget on the Tracker for that month.</p>
         </div>
 
         <div>
-          <h5 class="fw-bold text-dark mb-1">5. Sweep Unspent Balances (Transfers)</h5>
-          <p class="small text-muted mb-1">At month end, use <strong>Transfers</strong> to sweep unused category balances (e.g., ₦8,000 left in Gas) directly into your Rent or Emergency Fund savings.</p>
+          <h5 class="fw-bold text-dark mb-1">6. Sweep Unspent Balances (Transfers)</h5>
+          <p class="small text-muted mb-1">At month end, use <strong>Transfers</strong> to sweep unused category balances (e.g., ₦8,000 left in Gas) directly into another category or savings envelope.</p>
         </div>
       </div>
     </div>
 
-    <!-- Expert Guidance: Handling Extra / Variable Income -->
+    <!-- Core Financial Model: Income Allocation vs Category Transfers -->
     <div class="card p-4 shadow-sm border-primary">
-      <h4 class="fw-bold text-primary mb-3"><i class="bi bi-lightbulb me-2"></i>Expert Guide: How to Budget Extra / Variable Income</h4>
+      <h4 class="fw-bold text-primary mb-3"><i class="bi bi-diagram-3 me-2"></i>Understanding the Core Financial Model</h4>
       <p class="text-secondary small mb-3">
-        <strong>Scenario:</strong> Your regular salary is ₦500,000/month, but in August you receive an extra ₦300,000 (bonus/side-hustle). How should you handle tithes, extra savings, and allocations from this extra cash?
+        dadaNet enforces a clear distinction between <strong>Income Allocation</strong> and <strong>Category Transfers / Sweeps</strong>:
       </p>
 
-      <div class="bg-light p-3 rounded border mb-3">
-        <h6 class="fw-bold text-dark mb-2"><i class="bi bi-1-circle-fill text-primary me-2"></i>Method 1: Log in Other Income + Categorized Transfer Sweeps (Recommended)</h6>
-        <ol class="small text-muted mb-0 ps-3">
-          <li class="mb-1">Log the ₦300,000 in <strong>Other Income</strong> under August. Your total August income now reflects ₦800,000.</li>
-          <li class="mb-1">To allocate ₦30,000 tithe or ₦100,000 extra savings, log an actual payment on the Tracker or execute a <strong>Transfer</strong> from Other Income into your Investment/Savings category.</li>
-          <li class="mb-0">This keeps your base salary budget predictable while capturing full net worth expansion.</li>
-        </ol>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="p-3 bg-light rounded border h-100">
+            <h6 class="fw-bold text-success mb-2"><i class="bi bi-cash-coin me-2"></i>1. Income Allocation</h6>
+            <p class="small text-muted mb-2"><strong>"What job should this newly received money perform?"</strong></p>
+            <p class="small text-muted mb-0">
+              <code>Income → Ready To Assign → Allocate Income → Category Budget</code><br>
+              Assigns new income (e.g., ₦100,000 bonus) to budget categories.
+            </p>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="p-3 bg-light rounded border h-100">
+            <h6 class="fw-bold text-primary mb-2"><i class="bi bi-arrow-left-right me-2"></i>2. Category Transfer / Sweep</h6>
+            <p class="small text-muted mb-2"><strong>"What should I do with unused money from an existing category?"</strong></p>
+            <p class="small text-muted mb-0">
+              <code>Category (Unused Balance) → Transfer / Sweep → Destination Category</code><br>
+              Moves remaining money already assigned to one purpose over to another envelope.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div class="bg-light p-3 rounded border">
-        <h6 class="fw-bold text-dark mb-2"><i class="bi bi-2-circle-fill text-primary me-2"></i>Method 2: Adjust August Base Salary & Percentage Rules</h6>
+      <div class="mt-3 p-3 bg-primary bg-opacity-10 rounded border border-primary">
+        <h6 class="fw-bold text-primary mb-1"><i class="bi bi-calculator me-2"></i>Automatically Calculated Monthly Buffer</h6>
         <p class="small text-muted mb-0">
-          If your tithe and savings are configured as dynamic percentage rules (e.g., Tithe 10%, Savings 20%), updating the month's base salary to ₦800,000 on the <strong>Income</strong> page will automatically increase your Tithe budget to ₦80,000 and Savings to ₦160,000 for August.
+          The <strong>Monthly Buffer</strong> is dynamically computed as the residual of your base monthly income (<code>Salary − Base Planned Categories</code>).
+          It absorbs unallocated base salary, while extra income enters <strong>Ready To Assign</strong> for explicit allocation.
         </p>
       </div>
     </div>
