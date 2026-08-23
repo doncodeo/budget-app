@@ -181,13 +181,21 @@ function calculate_budget_summary(PDO $pdo, int $userId, int $year, string $mont
     $basePlanned = 0.0;
     $hasBufferCategory = false;
 
-    foreach ($categories as $cat) {
-        if ($cat['name'] === 'Monthly Buffer') {
-            $hasBufferCategory = true;
-            continue;
+    if ($totalIncome > 0) {
+        foreach ($categories as $cat) {
+            if ($cat['name'] === 'Monthly Buffer') {
+                $hasBufferCategory = true;
+                continue;
+            }
+            if (!$cat['is_other']) {
+                $basePlanned += category_budget($cat, $salary);
+            }
         }
-        if (!$cat['is_other']) {
-            $basePlanned += category_budget($cat, $salary);
+    } else {
+        foreach ($categories as $cat) {
+            if ($cat['name'] === 'Monthly Buffer') {
+                $hasBufferCategory = true;
+            }
         }
     }
 

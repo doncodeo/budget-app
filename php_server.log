@@ -143,3 +143,39 @@
 [Sun Aug 23 21:52:18 2026] [::1]:44794 Accepted
 [Sun Aug 23 21:52:18 2026] [::1]:44794 [200]: GET /dashboard.php?year=2026&month=Aug&allocated=1
 [Sun Aug 23 21:52:18 2026] [::1]:44794 Closing
+[Sun Aug 23 22:41:29 2026] [::1]:39384 Accepted
+[Sun Aug 23 22:41:29 2026] [::1]:39384 [200]: GET /about.php
+[Sun Aug 23 22:41:29 2026] [::1]:39384 Closing
+[Sun Aug 23 22:41:30 2026] [::1]:39386 Accepted
+[Sun Aug 23 22:41:30 2026] [::1]:39386 [200]: GET /register.php
+[Sun Aug 23 22:41:30 2026] [::1]:39386 Closing
+[Sun Aug 23 22:41:31 2026] [::1]:39394 Accepted
+[Sun Aug 23 22:41:31 2026] [::1]:39394 [302]: POST /register.php
+[Sun Aug 23 22:41:31 2026] [::1]:39394 Closing
+[Sun Aug 23 22:41:31 2026] [::1]:45756 Accepted
+[Sun Aug 23 22:41:31 2026] [::1]:45756 [200]: GET /dashboard.php
+[Sun Aug 23 22:41:31 2026] [::1]:45756 Closing
+[Sun Aug 23 22:41:32 2026] [::1]:45772 Accepted
+[Sun Aug 23 22:41:32 2026] [::1]:45772 [200]: GET /income.php
+[Sun Aug 23 22:41:32 2026] [::1]:45772 Closing
+[Sun Aug 23 22:41:34 2026] [::1]:45782 Accepted
+[Sun Aug 23 22:41:34 2026] [::1]:45782 [302]: POST /income.php
+[Sun Aug 23 22:41:34 2026] [::1]:45782 Closing
+[Sun Aug 23 22:41:34 2026] [::1]:45794 Accepted
+[Sun Aug 23 22:41:34 2026] [::1]:45794 [200]: GET /income.php?year=2026&saved=1
+[Sun Aug 23 22:41:34 2026] [::1]:45794 Closing
+[Sun Aug 23 22:41:35 2026] [::1]:45810 Accepted
+[Sun Aug 23 22:41:35 2026] [::1]:45810 [200]: GET /other_income.php
+[Sun Aug 23 22:41:35 2026] [::1]:45810 Closing
+[Sun Aug 23 22:41:37 2026] [::1]:45824 Accepted
+[Sun Aug 23 22:41:37 2026] [::1]:45824 [200]: POST /other_income.php
+[Sun Aug 23 22:41:37 2026] [::1]:45824 Closing
+[Sun Aug 23 22:41:38 2026] [::1]:45830 Accepted
+[Sun Aug 23 22:41:38 2026] [::1]:45830 [200]: GET /dashboard.php
+[Sun Aug 23 22:41:38 2026] [::1]:45830 Closing
+[Sun Aug 23 22:41:41 2026] [::1]:42470 Accepted
+[Sun Aug 23 22:41:41 2026] [::1]:42470 [302]: POST /dashboard.php
+[Sun Aug 23 22:41:41 2026] [::1]:42470 Closing
+[Sun Aug 23 22:41:41 2026] [::1]:42474 Accepted
+[Sun Aug 23 22:41:41 2026] [::1]:42474 [200]: GET /dashboard.php?year=2026&month=Aug&allocated=1
+[Sun Aug 23 22:41:41 2026] [::1]:42474 Closing
