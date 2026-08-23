@@ -1,4 +1,3 @@
-<?php require __DIR__ . '/header.php'; ?>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <div>
@@ -108,5 +107,3 @@ function toggleBasis() {
 }
 toggleBasis();
 </script>
-
-<?php require __DIR__ . '/footer.php'; ?>

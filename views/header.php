@@ -77,22 +77,27 @@ $userTheme = $user['theme'] ?? 'light';
 
       <!-- Persistent Year & Month Selector -->
       <?php if (!empty($globalYears)): ?>
-      <form method="get" class="d-flex align-items-center gap-2 me-3">
+      <form method="get" class="d-flex align-items-center me-3" title="Active Budget Period">
         <?php foreach ($currentQueryParams as $k => $v): ?>
           <?php if (!in_array($k, ['year', 'month'], true)): ?>
             <input type="hidden" name="<?= h($k) ?>" value="<?= h((string)$v) ?>">
           <?php endif; ?>
         <?php endforeach; ?>
-        <select name="year" class="form-select form-select-sm bg-dark-subtle text-light border-0" onchange="this.form.submit()">
-          <?php foreach ($globalYears as $y): ?>
-            <option value="<?= $y ?>" <?= $y === $globalSelectedYear ? 'selected' : '' ?>><?= $y ?></option>
-          <?php endforeach; ?>
-        </select>
-        <select name="month" class="form-select form-select-sm bg-dark-subtle text-light border-0" onchange="this.form.submit()">
-          <?php foreach ($globalMonths as $m): ?>
-            <option value="<?= h($m) ?>" <?= $m === $globalSelectedMonth ? 'selected' : '' ?>><?= h($m) ?></option>
-          <?php endforeach; ?>
-        </select>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white bg-opacity-10 text-light border-secondary-subtle small fw-medium">
+            <i class="bi bi-calendar3 me-1"></i> Period
+          </span>
+          <select name="year" class="form-select form-select-sm bg-white bg-opacity-10 text-light border-secondary-subtle fw-semibold" aria-label="Select Budget Year" onchange="this.form.submit()">
+            <?php foreach ($globalYears as $y): ?>
+              <option value="<?= $y ?>" <?= $y === $globalSelectedYear ? 'selected' : '' ?> class="bg-dark text-white"><?= $y ?></option>
+            <?php endforeach; ?>
+          </select>
+          <select name="month" class="form-select form-select-sm bg-white bg-opacity-10 text-light border-secondary-subtle fw-semibold" aria-label="Select Budget Month" onchange="this.form.submit()">
+            <?php foreach ($globalMonths as $m): ?>
+              <option value="<?= h($m) ?>" <?= $m === $globalSelectedMonth ? 'selected' : '' ?> class="bg-dark text-white"><?= h($m) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
       </form>
       <?php endif; ?>
 
