@@ -65,6 +65,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare('DELETE FROM categories WHERE id=? AND budget_id=?')->execute([$catId, $budgetId]);
             $flash = 'Category deleted.';
         }
+    } elseif ($action === 'change_password') {
+        $currentPass = $_POST['current_password'] ?? '';
+        $newPass = $_POST['new_password'] ?? '';
+        $confirmPass = $_POST['confirm_password'] ?? '';
+
+        if (!password_verify($currentPass, $user['password_hash'])) {
+            $flash = 'Current password is incorrect.';
+            $flashType = 'danger';
+        } elseif (strlen($newPass) < 8) {
+            $flash = 'New password must be at least 8 characters long.';
+            $flashType = 'danger';
+        } elseif ($newPass !== $confirmPass) {
+            $flash = 'New passwords do not match.';
+            $flashType = 'danger';
+        } else {
+            $newHash = password_hash($newPass, PASSWORD_BCRYPT);
+            $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$newHash, $userId]);
+            $flash = 'Your password has been changed successfully.';
+        }
     }
 }
 

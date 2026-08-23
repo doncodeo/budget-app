@@ -103,6 +103,28 @@
         </div>
       </form>
     </div>
+
+    <!-- Security & Change Password -->
+    <div class="card p-3 shadow-sm mt-4">
+      <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock text-primary me-2"></i>Change Password</h5>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="change_password">
+        <div class="mb-2">
+          <label class="form-label small">Current Password</label>
+          <input type="password" name="current_password" class="form-control form-control-sm" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">New Password</label>
+          <input type="password" name="new_password" class="form-control form-control-sm" required minlength="8">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Confirm New Password</label>
+          <input type="password" name="confirm_password" class="form-control form-control-sm" required minlength="8">
+        </div>
+        <button class="btn btn-outline-primary btn-sm w-100" type="submit">Update Password</button>
+      </form>
+    </div>
   </div>
 </div>
 

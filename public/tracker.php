@@ -57,6 +57,7 @@ render_template('tracker.twig', [
     'data' => $data,
     'groups' => $data['groups'] ?? [],
     'totals' => $data['totals'] ?? [],
+    'salary' => $data['salary'] ?? 0.0,
     'symbol' => $symbol,
     'groupColors' => $groupColors,
 ]);

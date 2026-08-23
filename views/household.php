@@ -16,14 +16,14 @@
       <div class="table-responsive mb-3">
         <table class="table table-sm align-middle mb-0">
           <thead>
-            <tr><th>Member</th><th>Role</th><th>Joined</th></tr>
+            <tr><th>Member</th><th>Role</th><th>Joined</th><th class="text-end">Actions</th></tr>
           </thead>
           <tbody>
             <?php foreach ($members as $m): ?>
               <tr>
                 <td class="fw-semibold">
                   <i class="bi bi-person me-1"></i> <?= h($m['username']) ?>
-                  <?php if ((int)($m['user_id'] ?? 0) === (int)$user['id']): ?>
+                  <?php if ((int)($m['id'] ?? 0) === (int)$user['id']): ?>
                     <span class="badge bg-secondary-subtle text-secondary ms-1">You</span>
                   <?php endif; ?>
                 </td>
@@ -35,7 +35,37 @@
                   <?php endif; ?>
                 </td>
                 <td class="small text-muted"><?= h($m['created_at']) ?></td>
+                <td class="text-end">
+                  <?php if ($currentUserRole === 'owner' && (int)$m['id'] !== (int)$user['id']): ?>
+                    <button class="btn btn-sm btn-outline-warning p-1 py-0 me-1" type="button" data-bs-toggle="collapse" data-bs-target="#resetPass-<?= $m['id'] ?>" title="Reset Member Password">
+                      <i class="bi bi-key"></i>
+                    </button>
+                    <form method="post" class="d-inline" onsubmit="return confirm('Remove this member from budget?')">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="remove_member">
+                      <input type="hidden" name="member_user_id" value="<?= $m['id'] ?>">
+                      <button class="btn btn-sm btn-outline-danger p-1 py-0" type="submit" title="Remove Member"><i class="bi bi-person-x"></i></button>
+                    </form>
+                  <?php endif; ?>
+                </td>
               </tr>
+              <?php if ($currentUserRole === 'owner' && (int)$m['id'] !== (int)$user['id']): ?>
+                <tr class="collapse bg-light" id="resetPass-<?= $m['id'] ?>">
+                  <td colspan="4" class="p-3">
+                    <form method="post" class="row g-2 align-items-center">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="reset_member_password">
+                      <input type="hidden" name="member_id" value="<?= $m['id'] ?>">
+                      <div class="col-sm-8">
+                        <input type="password" name="new_password" class="form-control form-control-sm" placeholder="Enter new temp password for <?= h($m['username']) ?>" required minlength="8">
+                      </div>
+                      <div class="col-sm-4">
+                        <button class="btn btn-warning btn-sm w-100" type="submit">Set New Password</button>
+                      </div>
+                    </form>
+                  </td>
+                </tr>
+              <?php endif; ?>
             <?php endforeach; ?>
           </tbody>
         </table>

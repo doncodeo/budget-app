@@ -100,6 +100,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("DELETE FROM budget_members WHERE budget_id = ? AND user_id = ?")->execute([$budgetId, $memberUserId]);
             $flash = "Member removed.";
         }
+    } elseif ($action === 'reset_member_password') {
+        // Verify current user is owner of active budget
+        $stmt = $pdo->prepare("SELECT owner_id FROM budgets WHERE id = ?");
+        $stmt->execute([$budgetId]);
+        $ownerId = (int)$stmt->fetchColumn();
+
+        if ($ownerId === $userId) {
+            $targetMemberId = (int)($_POST['member_id'] ?? 0);
+            $newPassword = $_POST['new_password'] ?? '';
+
+            if (strlen($newPassword) < 8) {
+                $flash = 'Temporary password must be at least 8 characters.';
+                $flashType = 'danger';
+            } else {
+                // Confirm target is a member of this budget
+                $mCheck = $pdo->prepare("SELECT 1 FROM budget_members WHERE budget_id = ? AND user_id = ?");
+                $mCheck->execute([$budgetId, $targetMemberId]);
+                if ($mCheck->fetch()) {
+                    $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
+                    $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$newHash, $targetMemberId]);
+                    $flash = "Member's password has been reset successfully.";
+                }
+            }
+        }
     } elseif ($action === 'update_currency') {
         $code = strtoupper(trim($_POST['currency_code'] ?? 'NGN'));
         $symbol = trim($_POST['currency_symbol'] ?? '₦');
