@@ -248,6 +248,12 @@ function save_income_allocations(PDO $pdo, int $userId, int $year, string $month
 
     foreach ($allocationsMap as $catIdStr => $amount) {
         $catId = (int)$catIdStr;
+        if ($amount === '' || $amount === null) {
+            continue;
+        }
+        if (!is_numeric($amount)) {
+            return 'Please enter valid numerical amounts for category allocations.';
+        }
         $amt = (float)$amount;
         if ($amt < 0) {
             return 'Allocation amounts cannot be negative.';
