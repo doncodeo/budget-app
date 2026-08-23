@@ -13,7 +13,9 @@ class View
         $viewFile = APP_ROOT . "/views/{$base}.php";
 
         if (file_exists($viewFile)) {
+            require APP_ROOT . '/views/header.php';
             require $viewFile;
+            require APP_ROOT . '/views/footer.php';
             return;
         }
 

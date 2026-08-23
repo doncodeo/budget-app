@@ -1,4 +1,3 @@
-<?php require __DIR__ . '/header.php'; ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
@@ -114,5 +113,3 @@
     </div>
   </div>
 </div>
-
-<?php require __DIR__ . '/footer.php'; ?>

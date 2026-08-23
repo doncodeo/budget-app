@@ -1,5 +1,3 @@
-<?php require __DIR__ . '/header.php'; ?>
-
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <h2 class="mb-0 fw-bold"><i class="bi bi-speedometer2 text-primary me-2"></i>Dashboard</h2>
@@ -229,5 +227,3 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
-
-<?php require __DIR__ . '/footer.php'; ?>
