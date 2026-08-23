@@ -50,19 +50,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             ensure_year($pdo, $userId, $year, $budgetId);
-            $stmt = $pdo->prepare(
-                'INSERT INTO transfers (budget_id, user_id, entry_date, year, month, from_category_id, to_category_id, amount, reason, approved)
-                 VALUES (?,?,?,?,?,?,?,?,?,?)'
-            );
-            $stmt->execute([$budgetId, $userId, $date, $year, $month, $from, $to, $amount, $reason, $approved]);
 
-            if (!empty($_POST['save_as_template'])) {
-                $tmplName = "Sweep from Cat #$from to Cat #$to";
-                $tmplStmt = $pdo->prepare('INSERT INTO transfer_templates (budget_id, name, from_category_id, to_category_id, amount) VALUES (?, ?, ?, ?, ?)');
-                $tmplStmt->execute([$budgetId, $tmplName, $from, $to, $amount]);
+            // Verify source category balance
+            $fromCatStmt = $pdo->prepare('SELECT * FROM categories WHERE id = ? AND budget_id = ?');
+            $fromCatStmt->execute([$from, $budgetId]);
+            $fromCat = $fromCatStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($fromCat) {
+                $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
+                $sourceRow = tracker_row($pdo, $userId, $fromCat, $year, $month, $salary, $budgetId);
+                if ($amount > $sourceRow['closing'] + 0.001) {
+                    $flash = sprintf(
+                        'This transfer exceeds the available balance in %s. Available: %s.',
+                        $fromCat['name'],
+                        fmt_money($sourceRow['closing'], $symbol)
+                    );
+                    $flashType = 'danger';
+                } else {
+                    $stmt = $pdo->prepare(
+                        'INSERT INTO transfers (budget_id, user_id, entry_date, year, month, from_category_id, to_category_id, amount, reason, approved)
+                         VALUES (?,?,?,?,?,?,?,?,?,?)'
+                    );
+                    $stmt->execute([$budgetId, $userId, $date, $year, $month, $from, $to, $amount, $reason, $approved]);
+
+                    if (!empty($_POST['save_as_template'])) {
+                        $tmplName = "Sweep from Cat #$from to Cat #$to";
+                        $tmplStmt = $pdo->prepare('INSERT INTO transfer_templates (budget_id, name, from_category_id, to_category_id, amount) VALUES (?, ?, ?, ?, ?)');
+                        $tmplStmt->execute([$budgetId, $tmplName, $from, $to, $amount]);
+                    }
+
+                    $flash = 'Transfer logged. Both buckets have been updated.';
+                }
+            } else {
+                $flash = 'Invalid source category for transfer.';
+                $flashType = 'danger';
             }
-
-            $flash = 'Transfer logged. Both buckets have been updated.';
         }
     } elseif ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
@@ -93,12 +115,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $month = $_GET['month'] ?? MONTHS[(int)date('n') - 1];
             ensure_year($pdo, $userId, $year, $budgetId);
 
-            $ins = $pdo->prepare(
-                'INSERT INTO transfers (budget_id, user_id, entry_date, year, month, from_category_id, to_category_id, amount, reason, approved)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-            );
-            $ins->execute([$budgetId, $userId, date('Y-m-d'), $year, $month, $tmpl['from_category_id'], $tmpl['to_category_id'], $tmpl['amount'], 'Recurring sweep template: ' . $tmpl['name'], 'Yes']);
-            $flash = "Applied template \"{$tmpl['name']}\" for $month $year!";
+            $fromCatStmt = $pdo->prepare('SELECT * FROM categories WHERE id = ? AND budget_id = ?');
+            $fromCatStmt->execute([$tmpl['from_category_id'], $budgetId]);
+            $fromCat = $fromCatStmt->fetch(PDO::FETCH_ASSOC);
+
+            $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
+            $sourceRow = $fromCat ? tracker_row($pdo, $userId, $fromCat, $year, $month, $salary, $budgetId) : null;
+
+            if ($sourceRow && (float)$tmpl['amount'] > $sourceRow['closing'] + 0.001) {
+                $flash = sprintf(
+                    'Cannot apply template: transfer exceeds available balance in %s. Available: %s.',
+                    $fromCat['name'],
+                    fmt_money($sourceRow['closing'], $symbol)
+                );
+                $flashType = 'danger';
+            } else {
+                $ins = $pdo->prepare(
+                    'INSERT INTO transfers (budget_id, user_id, entry_date, year, month, from_category_id, to_category_id, amount, reason, approved)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                );
+                $ins->execute([$budgetId, $userId, date('Y-m-d'), $year, $month, $tmpl['from_category_id'], $tmpl['to_category_id'], $tmpl['amount'], 'Recurring sweep template: ' . $tmpl['name'], 'Yes']);
+                $flash = "Applied template \"{$tmpl['name']}\" for $month $year!";
+            }
         }
     } elseif ($action === 'delete_template') {
         $templateId = (int)($_POST['template_id'] ?? 0);

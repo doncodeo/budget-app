@@ -168,6 +168,21 @@ function init_schema(PDO $pdo): void
         );
     ");
 
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS income_allocations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            budget_id INTEGER REFERENCES budgets(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            year INTEGER NOT NULL,
+            month TEXT NOT NULL,
+            category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+            amount REAL NOT NULL DEFAULT 0,
+            source_type TEXT NOT NULL DEFAULT 'Other Income',
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+    ");
+
     migrate_schema($pdo);
 }
 
@@ -189,7 +204,7 @@ function migrate_schema(PDO $pdo): void
     }
 
     // Ensure budget_id on data tables
-    $dataTables = ['categories', 'years', 'income', 'other_income', 'other_expenses', 'tracker_actuals', 'transfers'];
+    $dataTables = ['categories', 'years', 'income', 'other_income', 'other_expenses', 'tracker_actuals', 'transfers', 'income_allocations'];
     foreach ($dataTables as $table) {
         $cols = $pdo->query("PRAGMA table_info($table)")->fetchAll(PDO::FETCH_ASSOC);
         $hasBudgetId = false;

@@ -54,16 +54,16 @@ $userTheme = $user['theme'] ?? 'light';
 </style>
 </head>
 <body>
-<?php if (!empty($user)): ?>
 <nav class="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm" style="background-color: var(--nav-bg);">
   <div class="container-fluid px-4">
-    <a class="navbar-brand d-flex align-items-center gap-2" href="dashboard.php">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="<?= !empty($user) ? 'dashboard.php' : 'about.php' ?>">
       <i class="bi bi-wallet2 fs-4"></i> <?= h(APP_NAME) ?>
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="nav">
+      <?php if (!empty($user)): ?>
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <li class="nav-item"><a class="nav-link <?= $activePage==='dashboard'?'active fw-bold':'' ?>" href="dashboard.php"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
         <li class="nav-item"><a class="nav-link <?= $activePage==='income'?'active fw-bold':'' ?>" href="income.php"><i class="bi bi-cash-stack"></i> Income</a></li>
@@ -119,10 +119,18 @@ $userTheme = $user['theme'] ?? 'light';
           </ul>
         </div>
       </div>
+      <?php else: ?>
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link <?= $activePage==='about'?'active fw-bold':'' ?>" href="about.php"><i class="bi bi-question-circle"></i> About & Tutorial</a></li>
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        <a href="login.php" class="btn btn-sm btn-outline-light"><i class="bi bi-box-arrow-in-right me-1"></i> Log In</a>
+        <a href="register.php" class="btn btn-sm btn-light text-primary fw-semibold"><i class="bi bi-person-plus me-1"></i> Register</a>
+      </div>
+      <?php endif; ?>
     </div>
   </div>
 </nav>
-<?php endif; ?>
 
 <div class="container-fluid py-4 px-4">
 

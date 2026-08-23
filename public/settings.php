@@ -35,25 +35,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $percent = $basis === 'percent' ? ((float)($_POST['percent'] ?? 0) / 100) : null;
             $notes = trim($_POST['notes'] ?? '');
 
-            if ($action === 'create') {
-                $maxOrderStmt = $pdo->prepare('SELECT COALESCE(MAX(sort_order),0) FROM categories WHERE budget_id = ?');
-                $maxOrderStmt->execute([$budgetId]);
-                $maxOrder = (int)$maxOrderStmt->fetchColumn();
+            $pdo->beginTransaction();
+            try {
+                if ($action === 'create') {
+                    $maxOrderStmt = $pdo->prepare('SELECT COALESCE(MAX(sort_order),0) FROM categories WHERE budget_id = ?');
+                    $maxOrderStmt->execute([$budgetId]);
+                    $maxOrder = (int)$maxOrderStmt->fetchColumn();
 
-                $stmt = $pdo->prepare(
-                    'INSERT INTO categories (budget_id, user_id, name, group_name, basis, fixed_amount, percent, notes, sort_order)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                );
-                $stmt->execute([$budgetId, $userId, $name, $group, $basis, $fixed, $percent, $notes, $maxOrder + 1]);
-                $flash = "\"$name\" added.";
-            } else {
-                $catId = (int)($_POST['id'] ?? $_POST['category_id'] ?? 0);
-                $stmt = $pdo->prepare(
-                    'UPDATE categories SET name=?, group_name=?, basis=?, fixed_amount=?, percent=?, notes=?
-                     WHERE id=? AND budget_id=?'
-                );
-                $stmt->execute([$name, $group, $basis, $fixed, $percent, $notes, $catId, $budgetId]);
-                $flash = "\"$name\" updated.";
+                    $stmt = $pdo->prepare(
+                        'INSERT INTO categories (budget_id, user_id, name, group_name, basis, fixed_amount, percent, notes, sort_order)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                    );
+                    $stmt->execute([$budgetId, $userId, $name, $group, $basis, $fixed, $percent, $notes, $maxOrder + 1]);
+                } else {
+                    $catId = (int)($_POST['id'] ?? $_POST['category_id'] ?? 0);
+                    $stmt = $pdo->prepare(
+                        'UPDATE categories SET name=?, group_name=?, basis=?, fixed_amount=?, percent=?, notes=?
+                         WHERE id=? AND budget_id=?'
+                    );
+                    $stmt->execute([$name, $group, $basis, $fixed, $percent, $notes, $catId, $budgetId]);
+                }
+
+                // Check over-allocation across all configured years and months
+                $checkYears = get_years($pdo, $userId, $budgetId);
+                foreach ($checkYears as $y) {
+                    foreach (MONTHS as $m) {
+                        $sum = calculate_budget_summary($pdo, $userId, $y, $m, $budgetId);
+                        if ($sum['budget_status'] === 'Over-allocated') {
+                            throw new \Exception(sprintf(
+                                'This change would exceed available income by %s in %s %d.',
+                                fmt_money($sum['over_allocated_amount'], $symbol),
+                                $m,
+                                $y
+                            ));
+                        }
+                    }
+                }
+
+                $pdo->commit();
+                $flash = $action === 'create' ? "\"$name\" added." : "\"$name\" updated.";
+            } catch (\Throwable $e) {
+                $pdo->rollBack();
+                $flash = $e->getMessage();
+                $flashType = 'danger';
             }
         }
     } elseif ($action === 'delete' || $action === 'archive') {
