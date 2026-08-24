@@ -1,9 +1,9 @@
 <?php
-require __DIR__ . '/../src/config.php';
-require __DIR__ . '/../src/db.php';
-require __DIR__ . '/../src/auth.php';
-require __DIR__ . '/../src/helpers.php';
-require __DIR__ . '/../src/render.php';
+require_once __DIR__ . '/../src/config.php';
+require_once __DIR__ . '/../src/db.php';
+require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/helpers.php';
+require_once __DIR__ . '/../src/render.php';
 
 use App\Validator;
 
@@ -92,12 +92,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'delete' || $action === 'archive') {
         $catId = (int)($_POST['id'] ?? $_POST['category_id'] ?? 0);
-        $stmt = $pdo->prepare('SELECT is_other FROM categories WHERE id=? AND budget_id=?');
+        $stmt = $pdo->prepare('SELECT is_other, name FROM categories WHERE id=? AND budget_id=?');
         $stmt->execute([$catId, $budgetId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row && !$row['is_other']) {
-            $pdo->prepare('DELETE FROM categories WHERE id=? AND budget_id=?')->execute([$catId, $budgetId]);
-            $flash = 'Category deleted.';
+        if ($row && !$row['is_other'] && $row['name'] !== 'Monthly Buffer') {
+            // Soft delete by setting archived = 1 to preserve historical financial records
+            $pdo->prepare('UPDATE categories SET archived = 1 WHERE id=? AND budget_id=?')->execute([$catId, $budgetId]);
+            $flash = 'Category archived to preserve historical financial records.';
         }
     } elseif ($action === 'change_password') {
         $currentPass = $_POST['current_password'] ?? '';

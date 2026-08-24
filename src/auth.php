@@ -10,7 +10,7 @@ function current_user(): ?array
     if ($user !== null) {
         return $user;
     }
-    $stmt = get_db()->prepare('SELECT u.id, u.username, u.active_budget_id, u.theme, b.name AS budget_name, b.currency_symbol, b.currency_code
+    $stmt = get_db()->prepare('SELECT u.id, u.username, u.active_budget_id, u.theme, u.is_super_admin, b.name AS budget_name, b.currency_symbol, b.currency_code
                                FROM users u
                                LEFT JOIN budgets b ON b.id = u.active_budget_id
                                WHERE u.id = ?');
@@ -29,6 +29,17 @@ function require_login(): array
     $user = current_user();
     if (!$user) {
         header('Location: login.php');
+        exit;
+    }
+    return $user;
+}
+
+function require_super_admin(): array
+{
+    $user = require_login();
+    if (empty($user['is_super_admin'])) {
+        http_response_code(403);
+        echo '403 Forbidden - Super Admin access required.';
         exit;
     }
     return $user;
@@ -66,12 +77,26 @@ function attempt_register(string $username, string $password, string $confirm): 
 
 function attempt_login(string $username, string $password): ?string
 {
+    $now = time();
+    $_SESSION['login_attempts'] = array_filter(
+        $_SESSION['login_attempts'] ?? [],
+        fn($ts) => ($now - $ts) < 900 // 15-minute window
+    );
+
+    if (count($_SESSION['login_attempts']) >= 5) {
+        return 'Too many failed login attempts. Please wait 15 minutes before trying again.';
+    }
+
     $stmt = get_db()->prepare('SELECT id, password_hash FROM users WHERE username = ?');
     $stmt->execute([trim($username)]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
     if (!$row || !password_verify($password, $row['password_hash'])) {
+        $_SESSION['login_attempts'][] = $now;
         return 'Incorrect username or password.';
     }
+
+    unset($_SESSION['login_attempts']);
     $_SESSION['user_id'] = (int)$row['id'];
     session_regenerate_id(true);
     return null;

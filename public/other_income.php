@@ -45,11 +45,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             ensure_year($pdo, $userId, $year, $budgetId);
-            $stmt = $pdo->prepare(
-                'INSERT INTO other_income (budget_id, user_id, entry_date, year, month, source, amount, notes) VALUES (?,?,?,?,?,?,?,?)'
-            );
-            $stmt->execute([$budgetId, $userId, $date, $year, $month, $source, $amount, $notes]);
-            $flash = 'Other income logged successfully.';
+            if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+                $flash = "Period $month $year is closed and cannot be modified.";
+                $flashType = 'danger';
+            } else {
+                $stmt = $pdo->prepare(
+                    'INSERT INTO other_income (budget_id, user_id, entry_date, year, month, source, amount, notes) VALUES (?,?,?,?,?,?,?,?)'
+                );
+                $stmt->execute([$budgetId, $userId, $date, $year, $month, $source, $amount, $notes]);
+                $flash = 'Other income logged successfully.';
+            }
         }
     } elseif ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);

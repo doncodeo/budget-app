@@ -31,13 +31,149 @@ function get_active_budget_id(PDO $pdo, int $userId): int
     return 0;
 }
 
-/** All active categories for a budget, ordered by sort_order. */
+/** All active default category templates for a budget, ordered by sort_order. */
 function get_categories(PDO $pdo, int $userId, ?int $budgetId = null): array
 {
     $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
     $stmt = $pdo->prepare('SELECT * FROM categories WHERE (budget_id = ? OR (budget_id IS NULL AND user_id = ?)) AND archived = 0 ORDER BY sort_order, id');
     $stmt->execute([$budgetId, $userId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/** Ensure month snapshot exists in monthly_category_budgets and budget_periods. */
+function ensure_month_snapshot(PDO $pdo, int $userId, int $year, string $month, ?int $budgetId = null): void
+{
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+
+    // 1. Ensure period row exists
+    $pStmt = $pdo->prepare('SELECT id FROM budget_periods WHERE budget_id = ? AND year = ? AND month = ?');
+    $pStmt->execute([$budgetId, $year, $month]);
+    if (!$pStmt->fetch()) {
+        $insP = $pdo->prepare('INSERT INTO budget_periods (budget_id, year, month, status) VALUES (?, ?, ?, "open")');
+        $insP->execute([$budgetId, $year, $month]);
+    }
+
+    // 2. Ensure category snapshots exist for this month
+    $cStmt = $pdo->prepare('SELECT COUNT(*) FROM monthly_category_budgets WHERE budget_id = ? AND year = ? AND month = ?');
+    $cStmt->execute([$budgetId, $year, $month]);
+    $count = (int)$cStmt->fetchColumn();
+
+    if ($count === 0) {
+        $activeCategories = get_categories($pdo, $userId, $budgetId);
+        $insM = $pdo->prepare('
+            INSERT INTO monthly_category_budgets (
+                budget_id, user_id, year, month, category_id, category_name, group_name, basis, fixed_amount, percent, is_other, sort_order, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ');
+        foreach ($activeCategories as $cat) {
+            $insM->execute([
+                $budgetId,
+                $userId,
+                $year,
+                $month,
+                (int)$cat['id'],
+                $cat['name'],
+                $cat['group_name'],
+                $cat['basis'],
+                $cat['fixed_amount'],
+                $cat['percent'],
+                (int)$cat['is_other'],
+                (int)$cat['sort_order'],
+                $cat['notes'] ?? ''
+            ]);
+        }
+    }
+}
+
+/** Fetch month-specific category snapshot. */
+function get_month_categories(PDO $pdo, int $userId, int $year, string $month, ?int $budgetId = null): array
+{
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    ensure_month_snapshot($pdo, $userId, $year, $month, $budgetId);
+
+    $stmt = $pdo->prepare('
+        SELECT
+            id AS snapshot_id,
+            category_id AS id,
+            category_id,
+            budget_id,
+            user_id,
+            year,
+            month,
+            category_name AS name,
+            group_name,
+            basis,
+            fixed_amount,
+            percent,
+            is_other,
+            sort_order,
+            notes
+        FROM monthly_category_budgets
+        WHERE budget_id = ? AND year = ? AND month = ?
+        ORDER BY sort_order, category_id
+    ');
+    $stmt->execute([$budgetId, $year, $month]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/** Check if a budget period is closed. */
+function is_period_closed(PDO $pdo, int $userId, int $year, string $month, ?int $budgetId = null): bool
+{
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $stmt = $pdo->prepare('SELECT status FROM budget_periods WHERE budget_id = ? AND year = ? AND month = ?');
+    $stmt->execute([$budgetId, $year, $month]);
+    $status = $stmt->fetchColumn();
+    return $status === 'closed';
+}
+
+/** Toggle period status (open vs closed). */
+function set_period_status(PDO $pdo, int $userId, int $year, string $month, string $status, ?int $budgetId = null): void
+{
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    ensure_month_snapshot($pdo, $userId, $year, $month, $budgetId);
+    $closedAt = $status === 'closed' ? date('Y-m-d H:i:s') : null;
+    $closedBy = $status === 'closed' ? $userId : null;
+
+    $stmt = $pdo->prepare('UPDATE budget_periods SET status = ?, closed_at = ?, closed_by = ? WHERE budget_id = ? AND year = ? AND month = ?');
+    $stmt->execute([$status, $closedAt, $closedBy, $budgetId, $year, $month]);
+}
+
+/** Update category budget rule for a specific month without altering default template or other months. */
+function update_month_category_rule(PDO $pdo, int $userId, int $year, string $month, int $categoryId, string $basis, ?float $fixedAmount, ?float $percent, ?int $budgetId = null): ?string
+{
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+
+    if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+        return "Period $month $year is closed and cannot be modified.";
+    }
+
+    ensure_month_snapshot($pdo, $userId, $year, $month, $budgetId);
+
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare('
+            UPDATE monthly_category_budgets
+            SET basis = ?, fixed_amount = ?, percent = ?
+            WHERE budget_id = ? AND year = ? AND month = ? AND category_id = ?
+        ');
+        $stmt->execute([$basis, $fixedAmount, $percent, $budgetId, $year, $month, $categoryId]);
+
+        $summary = calculate_budget_summary($pdo, $userId, $year, $month, $budgetId);
+        if ($summary['budget_status'] === 'Over-allocated') {
+            throw new \Exception(sprintf(
+                'This change would exceed available income by %s in %s %d.',
+                fmt_money($summary['over_allocated_amount']),
+                $month,
+                $year
+            ));
+        }
+
+        $pdo->commit();
+        return null;
+    } catch (\Throwable $e) {
+        $pdo->rollBack();
+        return $e->getMessage();
+    }
 }
 
 /** Categories grouped by group_name, preserving sort_order. */
@@ -177,7 +313,7 @@ function calculate_budget_summary(PDO $pdo, int $userId, int $year, string $mont
     $otherIncome = get_other_income_total($pdo, $userId, $year, $month, $budgetId);
     $totalIncome = $salary + $otherIncome;
 
-    $categories = get_categories($pdo, $userId, $budgetId);
+    $categories = get_month_categories($pdo, $userId, $year, $month, $budgetId);
     $basePlanned = 0.0;
     $hasBufferCategory = false;
 
@@ -309,11 +445,13 @@ function tracker_row(PDO $pdo, int $userId, array $category, int $year, string $
 
     if ($category['name'] === 'Monthly Buffer') {
         if ($calculatedBufferBase === null) {
-            $cats = get_categories($pdo, $userId, $budgetId);
+            $cats = get_month_categories($pdo, $userId, $year, $month, $budgetId);
             $nonBuf = 0.0;
-            foreach ($cats as $c) {
-                if ($c['name'] !== 'Monthly Buffer' && !$c['is_other']) {
-                    $nonBuf += category_budget($c, $salary);
+            if ($salary + get_other_income_total($pdo, $userId, $year, $month, $budgetId) > 0) {
+                foreach ($cats as $c) {
+                    if ($c['name'] !== 'Monthly Buffer' && !$c['is_other']) {
+                        $nonBuf += category_budget($c, $salary);
+                    }
                 }
             }
             $calculatedBufferBase = max(0.0, $salary - $nonBuf);
@@ -341,17 +479,22 @@ function tracker_month(PDO $pdo, int $userId, int $year, string $month, ?int $bu
 {
     $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
     $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
-    $categories = get_categories($pdo, $userId, $budgetId);
+    $categories = get_month_categories($pdo, $userId, $year, $month, $budgetId);
 
     $basePlannedNonBuffer = 0.0;
-    foreach ($categories as $cat) {
-        if ($cat['name'] !== 'Monthly Buffer' && !$cat['is_other']) {
-            $basePlannedNonBuffer += category_budget($cat, $salary);
+    if ($salary + get_other_income_total($pdo, $userId, $year, $month, $budgetId) > 0) {
+        foreach ($categories as $cat) {
+            if ($cat['name'] !== 'Monthly Buffer' && !$cat['is_other']) {
+                $basePlannedNonBuffer += category_budget($cat, $salary);
+            }
         }
     }
     $bufferBase = max(0.0, $salary - $basePlannedNonBuffer);
 
-    $grouped = get_categories_grouped($pdo, $userId, $budgetId);
+    $grouped = [];
+    foreach ($categories as $cat) {
+        $grouped[$cat['group_name']][] = $cat;
+    }
     $groupColors = \App\BudgetService::getCategoryGroupColors();
     $result = [];
     $totals = ['budget' => 0.0, 'actual' => 0.0, 'in' => 0.0, 'out' => 0.0, 'closing' => 0.0];

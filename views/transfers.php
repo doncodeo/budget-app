@@ -147,6 +147,7 @@
                 <option value="<?= $cat['id'] ?>"><?= h($cat['name']) ?></option>
               <?php endforeach; ?>
             </select>
+            <div id="fromCatAvailableHelp" class="form-text text-muted small mt-1"></div>
           </div>
           <div class="col-6">
             <label class="form-label small">To Category</label>
@@ -176,3 +177,37 @@
     </div>
   </div>
 </div>
+
+<script>
+const categoryBalances = <?= json_encode($categoryBalances ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const fromSelect = document.querySelector('select[name="from_category_id"]');
+    const amountInput = document.querySelector('input[name="amount"]');
+    const helpDiv = document.getElementById('fromCatAvailableHelp');
+
+    function updateAvailableBalance(autoFillAmount = true) {
+        if (!fromSelect) return;
+        const catId = fromSelect.value;
+        const info = categoryBalances[catId];
+        if (info && helpDiv) {
+            helpDiv.innerHTML = `<i class="bi bi-wallet2 me-1"></i> Available: <strong>${info.formatted}</strong>`;
+            if (info.closing_raw <= 0) {
+                helpDiv.className = 'form-text text-danger fw-semibold mt-1 small';
+            } else {
+                helpDiv.className = 'form-text text-success fw-semibold mt-1 small';
+            }
+            if (autoFillAmount && amountInput) {
+                amountInput.value = info.closing > 0 ? info.closing : '';
+            }
+        }
+    }
+
+    if (fromSelect) {
+        fromSelect.addEventListener('change', function() {
+            updateAvailableBalance(true);
+        });
+        updateAvailableBalance(false);
+    }
+});
+</script>
