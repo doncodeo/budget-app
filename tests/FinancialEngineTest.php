@@ -245,4 +245,19 @@ class FinancialEngineTest extends TestCase
         $this->assertNotNull($err);
         $this->assertStringContainsString('closed', $err);
     }
+
+    public function testTransferBlockedWhenMonthHasZeroTotalIncome(): void
+    {
+        // August 2026 has zero salary and zero other income
+        $catParents = $this->pdo->prepare("SELECT id FROM categories WHERE budget_id = ? AND name = 'Parents'' Allowance'");
+        $catParents->execute([$this->budgetId]);
+        $parentsId = (int)$catParents->fetchColumn();
+
+        $parentsCat = ['id' => $parentsId, 'name' => "Parents' Allowance", 'basis' => 'fixed', 'fixed_amount' => 30000, 'is_other' => 0];
+        $parentsRow = tracker_row($this->pdo, $this->userId, $parentsCat, 2026, 'Aug', 0.0, $this->budgetId);
+
+        // When income is 0, funded base budget is 0 and available balance is 0
+        $this->assertEquals(0.0, $parentsRow['budget']);
+        $this->assertEquals(0.0, $parentsRow['closing']);
+    }
 }

@@ -191,14 +191,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const catId = fromSelect.value;
         const info = categoryBalances[catId];
         if (info && helpDiv) {
-            helpDiv.innerHTML = `<i class="bi bi-wallet2 me-1"></i> Available: <strong>${info.formatted}</strong>`;
-            if (info.closing_raw <= 0) {
+            if (!info.has_income) {
+                helpDiv.innerHTML = `<i class="bi bi-exclamation-circle me-1"></i> Available: <strong>${info.formatted}</strong> <span class="text-muted fw-normal">(No income recorded for this month)</span>`;
+                helpDiv.className = 'form-text text-danger fw-semibold mt-1 small';
+            } else if (info.closing_raw <= 0) {
+                helpDiv.innerHTML = `<i class="bi bi-wallet2 me-1"></i> Available: <strong>${info.formatted}</strong>`;
                 helpDiv.className = 'form-text text-danger fw-semibold mt-1 small';
             } else {
+                helpDiv.innerHTML = `<i class="bi bi-wallet2 me-1"></i> Available: <strong>${info.formatted}</strong>`;
                 helpDiv.className = 'form-text text-success fw-semibold mt-1 small';
             }
             if (autoFillAmount && amountInput) {
-                amountInput.value = info.closing > 0 ? info.closing : '';
+                amountInput.value = (info.has_income && info.closing > 0) ? info.closing : '';
             }
         }
     }
