@@ -226,7 +226,7 @@ function category_budget(array $category, float $salary): float
     if ($category['basis'] === 'percent') {
         return round((float)$category['percent'] * $salary, 2);
     }
-    return (float)$category['fixed_amount'];
+    return round((float)$category['fixed_amount'], 2);
 }
 
 function get_actual(PDO $pdo, int $userId, int $categoryId, int $year, string $month, ?int $budgetId = null): float
@@ -335,13 +335,16 @@ function calculate_budget_summary(PDO $pdo, int $userId, int $year, string $mont
         }
     }
 
-    $bufferBase = max(0.0, $salary - $basePlanned);
-    $totalBasePlanned = $basePlanned + ($hasBufferCategory ? $bufferBase : 0.0);
+    $bufferBase = round(max(0.0, $salary - $basePlanned), 2);
+    $totalBasePlanned = round($basePlanned + ($hasBufferCategory ? $bufferBase : 0.0), 2);
 
-    $totalAllocations = get_total_allocations_for_month($pdo, $userId, $year, $month, $budgetId);
-    $totalAllocated = $totalBasePlanned + $totalAllocations;
+    $totalAllocations = round(get_total_allocations_for_month($pdo, $userId, $year, $month, $budgetId), 2);
+    $totalAllocated = round($totalBasePlanned + $totalAllocations, 2);
 
-    $readyToAssign = $totalIncome - $totalAllocated;
+    $readyToAssign = round($totalIncome - $totalAllocated, 2);
+    if (abs($readyToAssign) < 0.001) {
+        $readyToAssign = 0.0;
+    }
 
     $status = 'Balanced';
     $overAllocatedAmount = 0.0;
@@ -442,16 +445,18 @@ function save_income_allocations(PDO $pdo, int $userId, int $year, string $month
 function tracker_row(PDO $pdo, int $userId, array $category, int $year, string $month, float $salary, ?int $budgetId = null, ?float $calculatedBufferBase = null): array
 {
     $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    $otherIncome = get_other_income_total($pdo, $userId, $year, $month, $budgetId);
+    $totalIncome = $salary + $otherIncome;
 
-    if ($category['name'] === 'Monthly Buffer') {
+    if ($totalIncome <= 0) {
+        $baseBudget = 0.0;
+    } elseif ($category['name'] === 'Monthly Buffer') {
         if ($calculatedBufferBase === null) {
             $cats = get_month_categories($pdo, $userId, $year, $month, $budgetId);
             $nonBuf = 0.0;
-            if ($salary + get_other_income_total($pdo, $userId, $year, $month, $budgetId) > 0) {
-                foreach ($cats as $c) {
-                    if ($c['name'] !== 'Monthly Buffer' && !$c['is_other']) {
-                        $nonBuf += category_budget($c, $salary);
-                    }
+            foreach ($cats as $c) {
+                if ($c['name'] !== 'Monthly Buffer' && !$c['is_other']) {
+                    $nonBuf += category_budget($c, $salary);
                 }
             }
             $calculatedBufferBase = max(0.0, $salary - $nonBuf);
@@ -464,12 +469,15 @@ function tracker_row(PDO $pdo, int $userId, array $category, int $year, string $
     $allocations = get_category_allocations_total($pdo, $userId, (int)$category['id'], $year, $month, $budgetId);
     $budget = $baseBudget + $allocations;
 
-    $actual = $category['is_other']
+    $actual = round($category['is_other']
         ? get_other_expense_total($pdo, $userId, $year, $month, $budgetId)
-        : get_actual($pdo, $userId, (int)$category['id'], $year, $month, $budgetId);
-    $in = get_transfer_in($pdo, $userId, (int)$category['id'], $year, $month, $budgetId);
-    $out = get_transfer_out($pdo, $userId, (int)$category['id'], $year, $month, $budgetId);
-    $closing = $budget - $actual + $in - $out;
+        : get_actual($pdo, $userId, (int)$category['id'], $year, $month, $budgetId), 2);
+    $in = round(get_transfer_in($pdo, $userId, (int)$category['id'], $year, $month, $budgetId), 2);
+    $out = round(get_transfer_out($pdo, $userId, (int)$category['id'], $year, $month, $budgetId), 2);
+    $closing = round($budget - $actual + $in - $out, 2);
+    if (abs($closing) < 0.001) {
+        $closing = 0.0;
+    }
 
     return compact('budget', 'actual', 'in', 'out', 'closing', 'allocations');
 }

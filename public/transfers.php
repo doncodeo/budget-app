@@ -56,11 +56,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fromCatStmt->execute([$from, $budgetId]);
             $fromCat = $fromCatStmt->fetch(PDO::FETCH_ASSOC);
 
-            if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+            $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
+            $totalIncome = $salary + get_other_income_total($pdo, $userId, $year, $month, $budgetId);
+
+            if ($totalIncome <= 0) {
+                $flash = "Cannot transfer funds: No income has been recorded for $month $year yet. Please log your salary or extra income on the Income page first.";
+                $flashType = 'danger';
+            } elseif (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
                 $flash = "Period $month $year is closed and cannot be modified.";
                 $flashType = 'danger';
             } elseif ($fromCat) {
-                $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
                 $sourceRow = tracker_row($pdo, $userId, $fromCat, $year, $month, $salary, $budgetId);
                 if ($amount > $sourceRow['closing'] + 0.001) {
                     $flash = sprintf(
@@ -221,9 +226,10 @@ $paginatedLogs = array_map(function($t) {
 
 $categoryBalances = [];
 $salary = get_salary($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
+$totalIncome = $salary + get_other_income_total($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
 $monthCategories = get_month_categories($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
 $basePlannedNonBuffer = 0.0;
-if ($salary + get_other_income_total($pdo, $userId, $selectedYear, $selectedMonth, $budgetId) > 0) {
+if ($totalIncome > 0) {
     foreach ($monthCategories as $cat) {
         if ($cat['name'] !== 'Monthly Buffer' && !$cat['is_other']) {
             $basePlannedNonBuffer += category_budget($cat, $salary);
@@ -236,9 +242,10 @@ foreach ($monthCategories as $cat) {
     $row = tracker_row($pdo, $userId, $cat, $selectedYear, $selectedMonth, $salary, $budgetId, $bufferBase);
     $categoryBalances[$cat['id']] = [
         'name' => $cat['name'],
-        'closing' => max(0.0, $row['closing']),
-        'closing_raw' => $row['closing'],
+        'closing' => round(max(0.0, $row['closing']), 2),
+        'closing_raw' => round($row['closing'], 2),
         'formatted' => fmt_money($row['closing'], $symbol),
+        'has_income' => ($totalIncome > 0),
     ];
 }
 
