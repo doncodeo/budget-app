@@ -69,4 +69,32 @@ class PublicRoutesAndAuthTest extends TestCase
         $this->assertEquals(0.0, $summaryB['other_income']);
         $this->assertEquals(0.0, $summaryB['total_allocations']);
     }
+
+    public function testDoncodeoIsSuperAdminInSchemaMigration(): void
+    {
+        $this->pdo->prepare("INSERT INTO users (username, password_hash) VALUES ('doncodeo', 'hash')")->execute();
+        migrate_schema($this->pdo);
+
+        $stmt = $this->pdo->prepare("SELECT is_super_admin FROM users WHERE username = 'doncodeo'");
+        $stmt->execute();
+        $isSuperAdmin = (int)$stmt->fetchColumn();
+
+        $this->assertEquals(1, $isSuperAdmin);
+    }
+
+    public function testSuperAdminUserDeletion(): void
+    {
+        $this->pdo->prepare("INSERT INTO users (id, username, password_hash, is_super_admin) VALUES (10, 'superadmin', 'hash', 1)")->execute();
+        $this->pdo->prepare("INSERT INTO users (id, username, password_hash) VALUES (11, 'user_to_delete', 'hash')")->execute();
+
+        seed_new_user($this->pdo, 11, 2026);
+
+        // Delete user 11
+        $this->pdo->prepare('DELETE FROM budget_members WHERE user_id = 11')->execute();
+        $this->pdo->prepare('DELETE FROM users WHERE id = 11')->execute();
+
+        $stmt = $this->pdo->prepare('SELECT id FROM users WHERE id = 11');
+        $stmt->execute();
+        $this->assertFalse($stmt->fetch());
+    }
 }

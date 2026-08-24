@@ -43,6 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($val < 0) {
                 throw new \Exception("Salary cannot be negative.");
             }
+            if (is_period_closed($pdo, $userId, $year, $m, $budgetId)) {
+                $stmtCheck = $pdo->prepare('SELECT salary FROM income WHERE budget_id = ? AND year = ? AND month = ?');
+                $stmtCheck->execute([$budgetId, $year, $m]);
+                $oldVal = (float)$stmtCheck->fetchColumn();
+                if (abs($oldVal - $val) > 0.001) {
+                    throw new \Exception("Period $m $year is closed and cannot be modified.");
+                }
+                continue;
+            }
             $stmt->execute([$budgetId, $year, $m]);
             $incId = $stmt->fetchColumn();
             if ($incId) {

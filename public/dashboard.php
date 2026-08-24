@@ -30,25 +30,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flash = 'Please enter a valid year.';
             $flashType = 'danger';
         }
+    } elseif ($action === 'toggle_period_lock') {
+        $year = (int)($_POST['year'] ?? date('Y'));
+        $month = $_POST['month'] ?? MONTHS[(int)date('n') - 1];
+        $newStatus = is_period_closed($pdo, $userId, $year, $month, $budgetId) ? 'open' : 'closed';
+        set_period_status($pdo, $userId, $year, $month, $newStatus, $budgetId);
+        header("Location: dashboard.php?year=$year&month=" . urlencode($month) . "&status_toggled=1");
+        exit;
     } elseif ($action === 'allocate_income') {
         $year = (int)($_POST['year'] ?? date('Y'));
         $month = $_POST['month'] ?? MONTHS[(int)date('n') - 1];
-        $allocationsMap = $_POST['allocations'] ?? [];
-        $err = save_income_allocations($pdo, $userId, $year, $month, $allocationsMap, 'Other Income', $budgetId);
-        if ($err !== null) {
-            $flash = $err;
+        if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+            $flash = "Period $month $year is closed and cannot be modified.";
             $flashType = 'danger';
         } else {
-            header("Location: dashboard.php?year=$year&month=" . urlencode($month) . "&allocated=1");
-            exit;
+            $allocationsMap = $_POST['allocations'] ?? [];
+            $err = save_income_allocations($pdo, $userId, $year, $month, $allocationsMap, 'Other Income', $budgetId);
+            if ($err !== null) {
+                $flash = $err;
+                $flashType = 'danger';
+            } else {
+                header("Location: dashboard.php?year=$year&month=" . urlencode($month) . "&allocated=1");
+                exit;
+            }
         }
     } elseif ($action === 'delete_allocation') {
         $id = (int)($_POST['allocation_id'] ?? 0);
         $year = (int)($_POST['year'] ?? date('Y'));
         $month = $_POST['month'] ?? MONTHS[(int)date('n') - 1];
-        $pdo->prepare('DELETE FROM income_allocations WHERE id = ? AND budget_id = ?')->execute([$id, $budgetId]);
-        header("Location: dashboard.php?year=$year&month=" . urlencode($month) . "&deleted_alloc=1");
-        exit;
+        if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+            $flash = "Period $month $year is closed and cannot be modified.";
+            $flashType = 'danger';
+        } else {
+            $pdo->prepare('DELETE FROM income_allocations WHERE id = ? AND budget_id = ?')->execute([$id, $budgetId]);
+            header("Location: dashboard.php?year=$year&month=" . urlencode($month) . "&deleted_alloc=1");
+            exit;
+        }
     }
 }
 

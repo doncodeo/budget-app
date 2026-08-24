@@ -28,6 +28,7 @@ function init_schema(PDO $pdo): void
             currency_symbol TEXT NOT NULL DEFAULT '₦',
             active_budget_id INTEGER,
             theme TEXT NOT NULL DEFAULT 'light',
+            is_super_admin INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
     ");
@@ -183,6 +184,41 @@ function init_schema(PDO $pdo): void
         );
     ");
 
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS budget_periods (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            budget_id INTEGER REFERENCES budgets(id) ON DELETE CASCADE,
+            year INTEGER NOT NULL,
+            month TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+            closed_at TEXT,
+            closed_by INTEGER REFERENCES users(id),
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(budget_id, year, month)
+        );
+    ");
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS monthly_category_budgets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            budget_id INTEGER REFERENCES budgets(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            year INTEGER NOT NULL,
+            month TEXT NOT NULL,
+            category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+            category_name TEXT NOT NULL,
+            group_name TEXT NOT NULL DEFAULT 'General',
+            basis TEXT NOT NULL CHECK (basis IN ('fixed','percent')),
+            fixed_amount REAL,
+            percent REAL,
+            is_other INTEGER NOT NULL DEFAULT 0,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(budget_id, year, month, category_id)
+        );
+    ");
+
     migrate_schema($pdo);
 }
 
@@ -192,15 +228,33 @@ function migrate_schema(PDO $pdo): void
     $columns = $pdo->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_ASSOC);
     $hasActiveBudgetId = false;
     $hasTheme = false;
+    $hasSuperAdmin = false;
     foreach ($columns as $col) {
         if ($col['name'] === 'active_budget_id') $hasActiveBudgetId = true;
         if ($col['name'] === 'theme') $hasTheme = true;
+        if ($col['name'] === 'is_super_admin') $hasSuperAdmin = true;
     }
     if (!$hasActiveBudgetId) {
         $pdo->exec("ALTER TABLE users ADD COLUMN active_budget_id INTEGER;");
     }
     if (!$hasTheme) {
         $pdo->exec("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'light';");
+    }
+    if (!$hasSuperAdmin) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN is_super_admin INTEGER NOT NULL DEFAULT 0;");
+    }
+
+    // Set doncodeo as super admin
+    $pdo->exec("UPDATE users SET is_super_admin = 1 WHERE LOWER(username) = 'doncodeo'");
+
+    // Ensure archived column on categories
+    $catCols = $pdo->query("PRAGMA table_info(categories)")->fetchAll(PDO::FETCH_ASSOC);
+    $hasArchived = false;
+    foreach ($catCols as $c) {
+        if ($c['name'] === 'archived') $hasArchived = true;
+    }
+    if (!$hasArchived) {
+        $pdo->exec("ALTER TABLE categories ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;");
     }
 
     // Ensure budget_id on data tables

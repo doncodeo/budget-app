@@ -56,7 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fromCatStmt->execute([$from, $budgetId]);
             $fromCat = $fromCatStmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($fromCat) {
+            if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+                $flash = "Period $month $year is closed and cannot be modified.";
+                $flashType = 'danger';
+            } elseif ($fromCat) {
                 $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
                 $sourceRow = tracker_row($pdo, $userId, $fromCat, $year, $month, $salary, $budgetId);
                 if ($amount > $sourceRow['closing'] + 0.001) {
@@ -216,6 +219,29 @@ $paginatedLogs = array_map(function($t) {
     return $t;
 }, $transfers);
 
+$categoryBalances = [];
+$salary = get_salary($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
+$monthCategories = get_month_categories($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
+$basePlannedNonBuffer = 0.0;
+if ($salary + get_other_income_total($pdo, $userId, $selectedYear, $selectedMonth, $budgetId) > 0) {
+    foreach ($monthCategories as $cat) {
+        if ($cat['name'] !== 'Monthly Buffer' && !$cat['is_other']) {
+            $basePlannedNonBuffer += category_budget($cat, $salary);
+        }
+    }
+}
+$bufferBase = max(0.0, $salary - $basePlannedNonBuffer);
+
+foreach ($monthCategories as $cat) {
+    $row = tracker_row($pdo, $userId, $cat, $selectedYear, $selectedMonth, $salary, $budgetId, $bufferBase);
+    $categoryBalances[$cat['id']] = [
+        'name' => $cat['name'],
+        'closing' => max(0.0, $row['closing']),
+        'closing_raw' => $row['closing'],
+        'formatted' => fmt_money($row['closing'], $symbol),
+    ];
+}
+
 render_template('transfers.twig', [
     'activePage' => 'transfers',
     'pageTitle' => 'Transfers',
@@ -225,6 +251,7 @@ render_template('transfers.twig', [
     'selectedMonth' => $selectedMonth,
     'years' => $years,
     'categories' => $categories,
+    'categoryBalances' => $categoryBalances,
     'templates' => $templates,
     'transfers' => $transfers,
     'paginatedLogs' => $paginatedLogs,

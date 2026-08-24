@@ -2,8 +2,24 @@ DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteRule ^admin/?$ public/admin.php [L,QSA]
+    RewriteRule ^about/?$ public/about.php [L,QSA]
+    RewriteRule ^tutorial/?$ public/tutorial.php [L,QSA]
     RewriteCond %{REQUEST_URI} !^/public/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^$ public/ [L,R=302]
 </IfModule>
+
+# Explicitly deny web access to sensitive files and database files
+<FilesMatch "\.(sqlite|db|env|log|md|json|lock|xml|phar)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+RedirectMatch 404 /\.git

@@ -25,11 +25,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     check_csrf();
     $year = (int)$_POST['year'];
     $month = $_POST['month'];
-    foreach (($_POST['actual'] ?? []) as $catId => $val) {
-        set_actual($pdo, $userId, (int)$catId, $year, $month, (float)$val);
+    $budgetId = get_active_budget_id($pdo, $userId);
+
+    if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+        $flash = "Period $month $year is closed and cannot be modified.";
+        $flashType = 'danger';
+    } else {
+        foreach (($_POST['actual'] ?? []) as $catId => $val) {
+            set_actual($pdo, $userId, (int)$catId, $year, $month, (float)$val);
+        }
+        header("Location: tracker.php?year=$year&month=" . urlencode($month) . "&saved=1");
+        exit;
     }
-    header("Location: tracker.php?year=$year&month=" . urlencode($month) . "&saved=1");
-    exit;
 }
 
 $selectedYear = (int)($_GET['year'] ?? $years[0]);
@@ -44,7 +51,33 @@ if (isset($_GET['saved'])) {
     $flash = 'Actual amounts saved.';
 }
 
+$budgetId = get_active_budget_id($pdo, $userId);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'allocate_income') {
+    $year = (int)($_POST['year'] ?? date('Y'));
+    $month = $_POST['month'] ?? MONTHS[(int)date('n') - 1];
+    if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+        $flash = "Period $month $year is closed and cannot be modified.";
+        $flashType = 'danger';
+    } else {
+        $allocationsMap = $_POST['allocations'] ?? [];
+        $err = save_income_allocations($pdo, $userId, $year, $month, $allocationsMap, 'Other Income', $budgetId);
+        if ($err !== null) {
+            $flash = $err;
+            $flashType = 'danger';
+        } else {
+            header("Location: tracker.php?year=$year&month=" . urlencode($month) . "&allocated=1");
+            exit;
+        }
+    }
+}
+
+if (isset($_GET['allocated'])) {
+    $flash = 'Income allocated successfully and reflected on your Tracker.';
+}
+
 $data = tracker_month($pdo, $userId, $selectedYear, $selectedMonth);
+$summary = calculate_budget_summary($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
+$categories = get_categories($pdo, $userId, $budgetId);
 $groupColors = BudgetService::getCategoryGroupColors();
 
 render_template('tracker.twig', [
@@ -58,6 +91,8 @@ render_template('tracker.twig', [
     'groups' => $data['groups'] ?? [],
     'totals' => $data['totals'] ?? [],
     'salary' => $data['salary'] ?? 0.0,
+    'summary' => $summary,
+    'categories' => $categories,
     'symbol' => $symbol,
     'groupColors' => $groupColors,
 ]);

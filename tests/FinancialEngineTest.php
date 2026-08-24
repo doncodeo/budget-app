@@ -192,4 +192,57 @@ class FinancialEngineTest extends TestCase
         $this->assertEquals(0.0, $sepSummary['ready_to_assign']);
         $this->assertEquals('Balanced', $sepSummary['budget_status']);
     }
+
+    public function testSnapshotImmutabilityWhenSettingsChange(): void
+    {
+        // 1. Initialize Sep 2026 snapshot with Transport = 80,000
+        $sepCategories = get_month_categories($this->pdo, $this->userId, 2026, 'Sep', $this->budgetId);
+        $sepTransport = null;
+        foreach ($sepCategories as $cat) {
+            if ($cat['name'] === 'Transport') {
+                $sepTransport = $cat;
+            }
+        }
+        $this->assertNotNull($sepTransport);
+        $this->assertEquals(80000.0, (float)$sepTransport['fixed_amount']);
+
+        // 2. Change global Transport rule on categories table to 120,000 in October
+        $this->pdo->prepare("UPDATE categories SET fixed_amount = 120000 WHERE budget_id = ? AND name = 'Transport'")->execute([$this->budgetId]);
+
+        // 3. Verify September snapshot remains frozen at 80,000
+        $sepCategoriesAfter = get_month_categories($this->pdo, $this->userId, 2026, 'Sep', $this->budgetId);
+        $sepTransportAfter = null;
+        foreach ($sepCategoriesAfter as $cat) {
+            if ($cat['name'] === 'Transport') {
+                $sepTransportAfter = $cat;
+            }
+        }
+        $this->assertEquals(80000.0, (float)$sepTransportAfter['fixed_amount']);
+
+        // 4. Verify new month (October) picks up the new 120,000 template
+        $octCategories = get_month_categories($this->pdo, $this->userId, 2026, 'Oct', $this->budgetId);
+        $octTransport = null;
+        foreach ($octCategories as $cat) {
+            if ($cat['name'] === 'Transport') {
+                $octTransport = $cat;
+            }
+        }
+        $this->assertEquals(120000.0, (float)$octTransport['fixed_amount']);
+    }
+
+    public function testClosedPeriodEditsBlocked(): void
+    {
+        // Lock Sep 2026 period
+        set_period_status($this->pdo, $this->userId, 2026, 'Sep', 'closed', $this->budgetId);
+        $this->assertTrue(is_period_closed($this->pdo, $this->userId, 2026, 'Sep', $this->budgetId));
+
+        // Attempt month category rule update on closed month
+        $catStmt = $this->pdo->prepare("SELECT id FROM categories WHERE budget_id = ? AND name = 'Gas'");
+        $catStmt->execute([$this->budgetId]);
+        $gasId = (int)$catStmt->fetchColumn();
+
+        $err = update_month_category_rule($this->pdo, $this->userId, 2026, 'Sep', $gasId, 'fixed', 20000.0, null, $this->budgetId);
+        $this->assertNotNull($err);
+        $this->assertStringContainsString('closed', $err);
+    }
 }
