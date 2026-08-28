@@ -1,9 +1,9 @@
 <?php
-require __DIR__ . '/../src/config.php';
-require __DIR__ . '/../src/db.php';
-require __DIR__ . '/../src/auth.php';
-require __DIR__ . '/../src/helpers.php';
-require __DIR__ . '/../src/render.php';
+require_once __DIR__ . '/../src/config.php';
+require_once __DIR__ . '/../src/db.php';
+require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/helpers.php';
+require_once __DIR__ . '/../src/render.php';
 
 use App\Validator;
 
