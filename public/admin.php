@@ -61,7 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $pdo->beginTransaction();
                 try {
-                    // Delete budget memberships and user account
+                    // Delete related user records and memberships prior to user row deletion
+                    $pdo->prepare('DELETE FROM income_allocations WHERE user_id = ?')->execute([$targetUserId]);
+                    $pdo->prepare('DELETE FROM tracker_actuals WHERE user_id = ?')->execute([$targetUserId]);
+                    $pdo->prepare('DELETE FROM other_income WHERE user_id = ?')->execute([$targetUserId]);
+                    $pdo->prepare('DELETE FROM other_expenses WHERE user_id = ?')->execute([$targetUserId]);
+                    $pdo->prepare('DELETE FROM transfers WHERE user_id = ?')->execute([$targetUserId]);
+                    $pdo->prepare('DELETE FROM income WHERE user_id = ?')->execute([$targetUserId]);
+                    $pdo->prepare('DELETE FROM categories WHERE user_id = ?')->execute([$targetUserId]);
                     $pdo->prepare('DELETE FROM budget_members WHERE user_id = ?')->execute([$targetUserId]);
                     $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$targetUserId]);
                     $pdo->commit();

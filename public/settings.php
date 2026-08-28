@@ -66,6 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$name, $group, $basis, $fixed, $percent, $notes, $catId, $budgetId]);
                 }
 
+                // Sync category snapshots to open months first so validation evaluates the new rule state
+                sync_open_month_category_snapshots($pdo, $userId, $budgetId);
+
                 // Check over-allocation across all configured years and months
                 $checkYears = get_years($pdo, $userId, $budgetId);
                 foreach ($checkYears as $y) {
@@ -82,7 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                sync_open_month_category_snapshots($pdo, $userId, $budgetId);
                 $pdo->commit();
                 $flash = $action === 'create' ? "\"$name\" added." : "\"$name\" updated.";
             } catch (\Throwable $e) {

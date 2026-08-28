@@ -51,10 +51,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             ensure_year($pdo, $userId, $year, $budgetId);
 
-            // Verify source category balance
-            $fromCatStmt = $pdo->prepare('SELECT * FROM categories WHERE id = ? AND budget_id = ?');
-            $fromCatStmt->execute([$from, $budgetId]);
-            $fromCat = $fromCatStmt->fetch(PDO::FETCH_ASSOC);
+            // Verify source category balance using month snapshot
+            $monthCats = get_month_categories($pdo, $userId, $year, $month, $budgetId);
+            $fromCat = null;
+            foreach ($monthCats as $mc) {
+                if ((int)$mc['id'] === $from) {
+                    $fromCat = $mc;
+                    break;
+                }
+            }
 
             $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
             $totalIncome = $salary + get_other_income_total($pdo, $userId, $year, $month, $budgetId);
@@ -123,27 +128,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $month = $_GET['month'] ?? MONTHS[(int)date('n') - 1];
             ensure_year($pdo, $userId, $year, $budgetId);
 
-            $fromCatStmt = $pdo->prepare('SELECT * FROM categories WHERE id = ? AND budget_id = ?');
-            $fromCatStmt->execute([$tmpl['from_category_id'], $budgetId]);
-            $fromCat = $fromCatStmt->fetch(PDO::FETCH_ASSOC);
-
-            $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
-            $sourceRow = $fromCat ? tracker_row($pdo, $userId, $fromCat, $year, $month, $salary, $budgetId) : null;
-
-            if ($sourceRow && (float)$tmpl['amount'] > $sourceRow['closing'] + 0.001) {
-                $flash = sprintf(
-                    'Cannot apply template: transfer exceeds available balance in %s. Available: %s.',
-                    $fromCat['name'],
-                    fmt_money($sourceRow['closing'], $symbol)
-                );
+            if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
+                $flash = "Period $month $year is closed and cannot be modified.";
                 $flashType = 'danger';
             } else {
-                $ins = $pdo->prepare(
-                    'INSERT INTO transfers (budget_id, user_id, entry_date, year, month, from_category_id, to_category_id, amount, reason, approved)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                );
-                $ins->execute([$budgetId, $userId, date('Y-m-d'), $year, $month, $tmpl['from_category_id'], $tmpl['to_category_id'], $tmpl['amount'], 'Recurring sweep template: ' . $tmpl['name'], 'Yes']);
-                $flash = "Applied template \"{$tmpl['name']}\" for $month $year!";
+                $monthCats = get_month_categories($pdo, $userId, $year, $month, $budgetId);
+                $fromCat = null;
+                foreach ($monthCats as $mc) {
+                    if ((int)$mc['id'] === (int)$tmpl['from_category_id']) {
+                        $fromCat = $mc;
+                        break;
+                    }
+                }
+
+                $salary = get_salary($pdo, $userId, $year, $month, $budgetId);
+                $sourceRow = $fromCat ? tracker_row($pdo, $userId, $fromCat, $year, $month, $salary, $budgetId) : null;
+
+                if ($sourceRow && (float)$tmpl['amount'] > $sourceRow['closing'] + 0.001) {
+                    $flash = sprintf(
+                        'Cannot apply template: transfer exceeds available balance in %s. Available: %s.',
+                        $fromCat['name'],
+                        fmt_money($sourceRow['closing'], $symbol)
+                    );
+                    $flashType = 'danger';
+                } else {
+                    $ins = $pdo->prepare(
+                        'INSERT INTO transfers (budget_id, user_id, entry_date, year, month, from_category_id, to_category_id, amount, reason, approved)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                    );
+                    $ins->execute([$budgetId, $userId, date('Y-m-d'), $year, $month, $tmpl['from_category_id'], $tmpl['to_category_id'], $tmpl['amount'], 'Recurring sweep template: ' . $tmpl['name'], 'Yes']);
+                    $flash = "Applied template \"{$tmpl['name']}\" for $month $year!";
+                }
             }
         }
     } elseif ($action === 'delete_template') {
