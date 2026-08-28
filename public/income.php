@@ -29,6 +29,19 @@ if (!in_array($selectedYear, $years, true)) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     check_csrf();
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'toggle_period') {
+        $year = (int)($_POST['year'] ?? date('Y'));
+        $month = $_POST['month'] ?? MONTHS[(int)date('n') - 1];
+        $targetStatus = $_POST['target_status'] === 'closed' ? 'closed' : 'open';
+
+        set_period_status($pdo, $userId, $year, $month, $targetStatus, $budgetId);
+        $statusLabel = $targetStatus === 'closed' ? 'closed and locked' : 're-opened for edits';
+        header("Location: income.php?year=$year&flash=" . urlencode("Period $month $year is now $statusLabel."));
+        exit;
+    }
+
     $year = (int)($_POST['year'] ?? 0);
     ensure_year($pdo, $userId, $year, $budgetId);
 
@@ -82,14 +95,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (isset($_GET['saved'])) {
     $flash = "Salary for $selectedYear saved.";
 }
+if (isset($_GET['flash'])) {
+    $flash = urldecode($_GET['flash']);
+}
 
 $stmt = $pdo->prepare('SELECT month, salary FROM income WHERE budget_id=? AND year=?');
 $stmt->execute([$budgetId, $selectedYear]);
 $salaries = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'salary', 'month');
 
 $otherByMonth = [];
+$closedMonths = [];
 foreach (MONTHS as $m) {
     $otherByMonth[$m] = get_other_income_total($pdo, $userId, $selectedYear, $m, $budgetId);
+    $closedMonths[$m] = is_period_closed($pdo, $userId, $selectedYear, $m, $budgetId);
 }
 
 render_template('income.twig', [
@@ -101,5 +119,6 @@ render_template('income.twig', [
     'years' => $years,
     'salaries' => $salaries,
     'otherByMonth' => $otherByMonth,
+    'closedMonths' => $closedMonths,
     'symbol' => $symbol,
 ]);

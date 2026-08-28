@@ -31,11 +31,17 @@
               $sal = (float)($salaries[$m] ?? 0);
               $oth = (float)($otherByMonth[$m] ?? 0);
               $tot = $sal + $oth;
+              $isClosed = !empty($closedMonths[$m]);
             ?>
-            <tr>
-              <td class="fw-semibold"><?= h($m) ?></td>
+            <tr class="<?= $isClosed ? 'table-light' : '' ?>">
+              <td class="fw-semibold">
+                <?= h($m) ?>
+                <?php if ($isClosed): ?>
+                  <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;" title="Period is closed and locked"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                <?php endif; ?>
+              </td>
               <td class="text-end">
-                <input type="number" step="0.01" name="salary[<?= h($m) ?>]" class="form-control form-control-sm text-end" value="<?= $sal ?: '' ?>" placeholder="0.00">
+                <input type="number" step="0.01" name="salary[<?= h($m) ?>]" class="form-control form-control-sm text-end" value="<?= $sal ?: '' ?>" placeholder="0.00" <?= $isClosed ? 'readonly' : '' ?>>
               </td>
               <td class="text-end text-muted"><?= fmt_money($oth, $symbol) ?></td>
               <td class="text-end fw-bold positive"><?= fmt_money($tot, $symbol) ?></td>

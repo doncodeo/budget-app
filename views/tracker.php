@@ -4,12 +4,38 @@
     <h2 class="mb-0 fw-bold"><i class="bi bi-table text-primary me-2"></i>Budget Tracker</h2>
     <p class="text-muted small mb-0">Overview grid for <?= h($selectedMonth) ?> <?= $selectedYear ?> &bull; Click actual values to edit inline.</p>
   </div>
-  <div>
+  <div class="d-flex align-items-center gap-2">
+    <form method="post" class="d-inline">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="toggle_period">
+      <input type="hidden" name="year" value="<?= $selectedYear ?>">
+      <input type="hidden" name="month" value="<?= h($selectedMonth) ?>">
+      <input type="hidden" name="target_status" value="<?= !empty($isClosed) ? 'open' : 'closed' ?>">
+      <?php if (!empty($isClosed)): ?>
+        <button type="submit" class="btn btn-sm btn-outline-warning fw-semibold" onclick="return confirm('Re-open period <?= h($selectedMonth) ?> <?= $selectedYear ?> for edits?')">
+          <i class="bi bi-unlock-fill me-1"></i> Re-open Period
+        </button>
+      <?php else: ?>
+        <button type="submit" class="btn btn-sm btn-outline-secondary fw-semibold" onclick="return confirm('Close and lock period <?= h($selectedMonth) ?> <?= $selectedYear ?>?')">
+          <i class="bi bi-lock-fill me-1"></i> Close Period
+        </button>
+      <?php endif; ?>
+    </form>
     <a href="csv_export.php?type=tracker&year=<?= $selectedYear ?>&month=<?= h($selectedMonth) ?>" class="btn btn-sm btn-outline-success">
       <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export CSV
     </a>
   </div>
 </div>
+
+<?php if (!empty($isClosed)): ?>
+<div class="alert alert-warning py-2 px-3 shadow-sm mb-4 d-flex align-items-center justify-content-between">
+  <div>
+    <i class="bi bi-lock-fill me-2 fs-5"></i>
+    <strong>Period <?= h($selectedMonth) ?> <?= $selectedYear ?> is closed and locked.</strong> Historical income and budget allocations cannot be altered unless re-opened.
+  </div>
+  <span class="badge bg-dark">Closed</span>
+</div>
+<?php endif; ?>
 
 <?php if (!empty($summary)): ?>
 <!-- Ready To Assign Banner on Tracker -->
@@ -187,8 +213,8 @@ function updateTrackerAllocationTotals() {
                 <?php endif; ?>
               </td>
               <td class="text-end input-cell">
-                <?php if ($r['category']['is_other']): ?>
-                  <span class="text-muted" title="Pulls automatically from Other Expenses log"><?= fmt_money($r['actual'], $symbol) ?></span>
+                <?php if ($r['category']['is_other'] || !empty($isClosed)): ?>
+                  <span class="<?= !empty($isClosed) ? 'fw-semibold text-body' : 'text-muted' ?>" title="<?= !empty($isClosed) ? 'Period is locked' : 'Pulls automatically from Other Expenses log' ?>"><?= fmt_money($r['actual'], $symbol) ?></span>
                 <?php else: ?>
                   <input type="number" step="0.01" class="form-control form-control-sm text-end border-0 bg-transparent actual-input"
                          data-cat-id="<?= $r['category']['id'] ?>"
