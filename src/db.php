@@ -304,6 +304,14 @@ function migrate_schema(PDO $pdo): void
 
     // Auto-repair date vs year/month mismatch for logs
     repair_mismatched_dates($pdo);
+
+    // Synchronize open month category snapshots for existing users
+    $usersStmt = $pdo->query("SELECT id FROM users");
+    if ($usersStmt) {
+        foreach ($usersStmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
+            sync_open_month_category_snapshots($pdo, (int)$u['id']);
+        }
+    }
 }
 
 function repair_mismatched_dates(PDO $pdo): void

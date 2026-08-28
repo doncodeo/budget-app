@@ -108,7 +108,7 @@
         </div>
         <div class="mb-2" id="percentField" style="display:none">
           <label class="form-label small">% of Salary</label>
-          <input type="number" step="0.01" name="percent" class="form-control form-control-sm" value="<?= !empty($editingCat['percent']) ? number_format((float)$editingCat['percent'] * 100, 2) : '' ?>">
+          <input type="number" step="0.01" name="percent" class="form-control form-control-sm" value="<?= isset($editingCat['percent']) && $editingCat['percent'] !== null && $editingCat['percent'] !== '' ? (float)$editingCat['percent'] * 100 : '' ?>">
         </div>
         <div class="mb-3">
           <label class="form-label small">Notes</label>

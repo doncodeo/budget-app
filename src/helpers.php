@@ -138,6 +138,87 @@ function set_period_status(PDO $pdo, int $userId, int $year, string $month, stri
     $stmt->execute([$status, $closedAt, $closedBy, $budgetId, $year, $month]);
 }
 
+/** Synchronize category template changes from `categories` to all OPEN `monthly_category_budgets` periods. */
+function sync_open_month_category_snapshots(PDO $pdo, int $userId, ?int $budgetId = null): void
+{
+    $budgetId = $budgetId ?? get_active_budget_id($pdo, $userId);
+    if (!$budgetId) return;
+
+    // Find all open periods for this budget
+    $stmt = $pdo->prepare('SELECT year, month FROM budget_periods WHERE budget_id = ? AND status != "closed"');
+    $stmt->execute([$budgetId]);
+    $openPeriods = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $activeCategories = get_categories($pdo, $userId, $budgetId);
+    $activeCatIds = array_map('intval', array_column($activeCategories, 'id'));
+
+    foreach ($openPeriods as $period) {
+        $year = (int)$period['year'];
+        $month = $period['month'];
+
+        foreach ($activeCategories as $cat) {
+            $catId = (int)$cat['id'];
+            // Check if snapshot row exists
+            $check = $pdo->prepare('SELECT id FROM monthly_category_budgets WHERE budget_id = ? AND year = ? AND month = ? AND category_id = ?');
+            $check->execute([$budgetId, $year, $month, $catId]);
+            if ($check->fetchColumn()) {
+                $upd = $pdo->prepare('
+                    UPDATE monthly_category_budgets
+                    SET category_name = ?, group_name = ?, basis = ?, fixed_amount = ?, percent = ?, is_other = ?, sort_order = ?, notes = ?
+                    WHERE budget_id = ? AND year = ? AND month = ? AND category_id = ?
+                ');
+                $upd->execute([
+                    $cat['name'],
+                    $cat['group_name'],
+                    $cat['basis'],
+                    $cat['fixed_amount'],
+                    $cat['percent'],
+                    (int)$cat['is_other'],
+                    (int)$cat['sort_order'],
+                    $cat['notes'] ?? '',
+                    $budgetId,
+                    $year,
+                    $month,
+                    $catId
+                ]);
+            } else {
+                $ins = $pdo->prepare('
+                    INSERT INTO monthly_category_budgets (
+                        budget_id, user_id, year, month, category_id, category_name, group_name, basis, fixed_amount, percent, is_other, sort_order, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ');
+                $ins->execute([
+                    $budgetId,
+                    $userId,
+                    $year,
+                    $month,
+                    $catId,
+                    $cat['name'],
+                    $cat['group_name'],
+                    $cat['basis'],
+                    $cat['fixed_amount'],
+                    $cat['percent'],
+                    (int)$cat['is_other'],
+                    (int)$cat['sort_order'],
+                    $cat['notes'] ?? ''
+                ]);
+            }
+        }
+
+        // Remove archived categories from open periods if no transaction history exists for them
+        if (!empty($activeCatIds)) {
+            $inClause = implode(',', array_fill(0, count($activeCatIds), '?'));
+            $delParams = array_merge([$budgetId, $year, $month], $activeCatIds);
+            $del = $pdo->prepare("
+                DELETE FROM monthly_category_budgets
+                WHERE budget_id = ? AND year = ? AND month = ?
+                AND category_id NOT IN ($inClause)
+            ");
+            $del->execute($delParams);
+        }
+    }
+}
+
 /** Update category budget rule for a specific month without altering default template or other months. */
 function update_month_category_rule(PDO $pdo, int $userId, int $year, string $month, int $categoryId, string $basis, ?float $fixedAmount, ?float $percent, ?int $budgetId = null): ?string
 {
