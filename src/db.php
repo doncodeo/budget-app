@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/helpers.php';
+
 function get_db(): PDO
 {
     static $pdo = null;
