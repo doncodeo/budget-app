@@ -244,6 +244,10 @@ class FinancialEngineTest extends TestCase
         $err = update_month_category_rule($this->pdo, $this->userId, 2026, 'Sep', $gasId, 'fixed', 20000.0, null, $this->budgetId);
         $this->assertNotNull($err);
         $this->assertStringContainsString('closed', $err);
+
+        // Verify reopening unlocks the period
+        set_period_status($this->pdo, $this->userId, 2026, 'Sep', 'open', $this->budgetId);
+        $this->assertFalse(is_period_closed($this->pdo, $this->userId, 2026, 'Sep', $this->budgetId));
     }
 
     public function testTransferBlockedWhenMonthHasZeroTotalIncome(): void

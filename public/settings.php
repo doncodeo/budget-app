@@ -82,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                sync_open_month_category_snapshots($pdo, $userId, $budgetId);
                 $pdo->commit();
                 $flash = $action === 'create' ? "\"$name\" added." : "\"$name\" updated.";
             } catch (\Throwable $e) {
@@ -98,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($row && !$row['is_other'] && $row['name'] !== 'Monthly Buffer') {
             // Soft delete by setting archived = 1 to preserve historical financial records
             $pdo->prepare('UPDATE categories SET archived = 1 WHERE id=? AND budget_id=?')->execute([$catId, $budgetId]);
+            sync_open_month_category_snapshots($pdo, $userId, $budgetId);
             $flash = 'Category archived to preserve historical financial records.';
         }
     } elseif ($action === 'change_password') {

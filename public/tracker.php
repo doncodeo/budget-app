@@ -27,6 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $month = $_POST['month'];
     $budgetId = get_active_budget_id($pdo, $userId);
 
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'toggle_period') {
+        $targetStatus = $_POST['target_status'] === 'closed' ? 'closed' : 'open';
+        set_period_status($pdo, $userId, $year, $month, $targetStatus, $budgetId);
+        $statusLabel = $targetStatus === 'closed' ? 'closed and locked' : 're-opened for edits';
+        header("Location: tracker.php?year=$year&month=" . urlencode($month) . "&flash=" . urlencode("Period $month $year is now $statusLabel."));
+        exit;
+    }
+
     if (is_period_closed($pdo, $userId, $year, $month, $budgetId)) {
         $flash = "Period $month $year is closed and cannot be modified.";
         $flashType = 'danger';
@@ -49,6 +59,9 @@ if (!in_array($selectedMonth, MONTHS, true)) {
 }
 if (isset($_GET['saved'])) {
     $flash = 'Actual amounts saved.';
+}
+if (isset($_GET['flash'])) {
+    $flash = urldecode($_GET['flash']);
 }
 
 $budgetId = get_active_budget_id($pdo, $userId);
@@ -79,6 +92,7 @@ $data = tracker_month($pdo, $userId, $selectedYear, $selectedMonth);
 $summary = calculate_budget_summary($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
 $categories = get_categories($pdo, $userId, $budgetId);
 $groupColors = BudgetService::getCategoryGroupColors();
+$isClosed = is_period_closed($pdo, $userId, $selectedYear, $selectedMonth, $budgetId);
 
 render_template('tracker.twig', [
     'activePage' => 'tracker',
@@ -87,6 +101,7 @@ render_template('tracker.twig', [
     'flashType' => $flashType,
     'selectedYear' => $selectedYear,
     'selectedMonth' => $selectedMonth,
+    'isClosed' => $isClosed,
     'data' => $data,
     'groups' => $data['groups'] ?? [],
     'totals' => $data['totals'] ?? [],
